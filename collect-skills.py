@@ -295,7 +295,7 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
             + list(SKILLS_DIR.glob(f"{skill_name}*"))
         )
         tag = _source_tag(item)
-        status_str = "skill exists" if skill_exists else "no skill yet"
+        status_str = "skill on disk" if skill_exists else "skill missing"
         print(f"  {item.name}/  →  {skill_name}/SKILL.md  [{tag}]  [{status_str}]")
     if verbose:
         print()
