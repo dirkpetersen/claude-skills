@@ -135,6 +135,17 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
     return meta, body
 
 
+def _strip_code_fence(text: str) -> str:
+    """Strip wrapping ```markdown ... ``` that LLMs often add around output."""
+    s = text.strip()
+    if s.startswith("```"):
+        first_nl = s.index("\n") if "\n" in s else len(s)
+        s = s[first_nl + 1:]
+    if s.endswith("```"):
+        s = s[:-3]
+    return s.strip()
+
+
 def is_valid_skill(content: str) -> bool:
     """Quick validity check: needs --- delimiters, name, and description."""
     meta, _ = parse_frontmatter(content)
@@ -154,6 +165,29 @@ def is_valid_skill(content: str) -> bool:
         if "<" in stripped or ">" in stripped:
             return False
     return True
+
+
+def _skill_rejection_reason(content: str) -> Optional[str]:
+    """Return a human-readable reason if content is not a valid skill, else None."""
+    if not content or not content.strip():
+        return "empty content"
+    meta, _ = parse_frontmatter(content)
+    name = meta.get("name", "")
+    desc = meta.get("description", "")
+    if not name:
+        first_line = content.split("\n", 1)[0][:80]
+        return f"no 'name' in frontmatter (first line: {first_line!r})"
+    if not desc:
+        return f"no 'description' in frontmatter (name={name})"
+    if re.search(r"[A-Z \t]", name):
+        return f"name {name!r} has uppercase or spaces"
+    # angle bracket check
+    if "<" in content or ">" in content:
+        stripped = re.sub(r"```.*?```", "", content, flags=re.DOTALL)
+        stripped = re.sub(r"`[^`]+`", "", stripped)
+        if "<" in stripped or ">" in stripped:
+            return "contains < or > outside code fences"
+    return None
 
 
 def sanitize_name(name: str) -> str:
@@ -343,13 +377,17 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     if not text:
                         continue
                     skill_content = _generate_skill_via_claude(text, item.name)
-                if skill_content and is_valid_skill(skill_content):
-                    meta, _ = parse_frontmatter(skill_content)
-                    sdir = skill_dirname(meta, item.name)
-                    st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
-                    print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md  [{st}]")
-                    installed = True
-                    break
+                if skill_content:
+                    reason = _skill_rejection_reason(skill_content)
+                    if reason:
+                        print(f"    WARNING: generated skill invalid: {reason}")
+                    else:
+                        meta, _ = parse_frontmatter(skill_content)
+                        sdir = skill_dirname(meta, item.name)
+                        st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                        print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md  [{st}]")
+                        installed = True
+                        break
 
         # 1-d  Any markdown / text as AI source (README, .pdf.md, etc.)
         if not installed and generate:
@@ -360,13 +398,17 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 if len(text) < 200:
                     continue  # too little content to generate from
                 skill_content = _generate_skill_via_claude(text, item.name)
-                if skill_content and is_valid_skill(skill_content):
-                    meta, _ = parse_frontmatter(skill_content)
-                    sdir = skill_dirname(meta, item.name)
-                    st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
-                    print(f"  [local+AI] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
-                    installed = True
-                    break
+                if skill_content:
+                    reason = _skill_rejection_reason(skill_content)
+                    if reason:
+                        print(f"    WARNING: generated skill invalid: {reason}")
+                    else:
+                        meta, _ = parse_frontmatter(skill_content)
+                        sdir = skill_dirname(meta, item.name)
+                        st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                        print(f"  [local+AI] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
+                        installed = True
+                        break
 
         if not installed and verbose:
             print(f"    (nothing usable found in {item.name}/)")
@@ -480,47 +522,66 @@ BODY RULES:
                 capture_output=True, text=True, timeout=120,
             )
             if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
+                raw = _strip_code_fence(result.stdout)
+                if raw.startswith("---"):
+                    return raw
+                # CLI returned text but not in skill format — try to salvage
+                print(f"    WARNING: claude CLI output does not start with '---' frontmatter")
+                return raw  # let caller decide via is_valid_skill
             print(f"    WARNING: claude CLI non-zero exit: {result.stderr[:200]}")
         except Exception as exc:
             print(f"    WARNING: claude CLI error: {exc}")
         # fall through to SDK
 
-    # ── fallback: Anthropic Python SDK ─────────────────────────────────────────
+    # ── fallback: Anthropic Python SDK (direct API or Bedrock) ─────────────────
     if not doc_text:
         return None  # nothing to send to the SDK
 
     try:
-        import anthropic  # pip install anthropic
+        import anthropic  # pip install anthropic  (or pip install 'anthropic[bedrock]')
     except ImportError:
         print("    WARNING: 'anthropic' package not installed. Run: pip install anthropic")
         return None
 
+    # Pick the right client: Bedrock when AWS credentials are present, else direct API
     api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        print("    WARNING: ANTHROPIC_API_KEY not set and claude CLI unavailable.")
+    use_bedrock = not api_key and hasattr(anthropic, "AnthropicBedrock")
+    if not api_key and not use_bedrock:
+        print("    WARNING: ANTHROPIC_API_KEY not set and Bedrock not available.")
         return None
 
     guide = _guide_text()
     if guide:
         print(f"    Reading {GUIDE_PDF.name} as rules context (text extraction) …")
     guide_section = f"Skill-building guide (read and follow these rules):\n\n{guide}\n\n" if guide else ""
-    print(f"    Invoking Anthropic SDK: {'guide + ' if guide else ''}inline doc → generate {skill_name}/SKILL.md")
+    backend = "Bedrock" if use_bedrock else "Anthropic SDK"
+    print(f"    Invoking {backend}: {'guide + ' if guide else ''}inline doc → generate {skill_name}/SKILL.md")
     full_prompt = (
         f"{guide_section}"
         f"Create a Claude Code skill file named '{skill_name}' from "
         f"this documentation:\n\n{doc_text[:14000]}\n\n{instructions}"
     )
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        if use_bedrock:
+            region = os.environ.get("AWS_DEFAULT_REGION", "us-west-2")
+            profile = os.environ.get("AWS_PROFILE", "bedrock")
+            client = anthropic.AnthropicBedrock(
+                aws_region=region, aws_profile=profile,
+            )
+            model = os.environ.get("ANTHROPIC_MODEL",
+                                   "us.anthropic.claude-sonnet-4-6-v1")
+        else:
+            client = anthropic.Anthropic(api_key=api_key)
+            model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
         msg = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=model,
             max_tokens=4096,
             messages=[{"role": "user", "content": full_prompt}],
         )
-        return msg.content[0].text.strip()
+        raw = _strip_code_fence(msg.content[0].text)
+        return raw
     except Exception as exc:
-        print(f"    WARNING: Anthropic SDK error: {exc}")
+        print(f"    WARNING: {backend} error: {exc}")
         return None
 
 
