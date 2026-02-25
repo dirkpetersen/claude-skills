@@ -1,55 +1,11 @@
 ---
 name: appmotel
-description: Lightweight PaaS using systemd, GitHub, and Traefik for simple application deployment without container complexity
+description: Managing Appmotel PaaS from a developer account (apps user) for 24x7 automation with Claude Code
 ---
 
-# Appmotel: Lightweight PaaS
+# Appmotel Management for Developer Accounts
 
 ## Overview
-
-Appmotel is a no-frills Platform-as-a-Service that simplifies application deployment using established tools: systemd for service management, GitHub for repositories, and Traefik as a reverse proxy. It provides automatic HTTPS, health monitoring, rate limiting, and automatic backups.
-
-**Official Repository:** https://github.com/dirkpetersen/appmotel
-
-See also: [Full AppMotel Documentation](https://raw.githubusercontent.com/dirkpetersen/appmotel/refs/heads/main/README.md)
-
-## CLI Commands Quick Reference
-
-### Application Management
-
-```bash
-appmo add <app-name> <url|user/repo> [branch]      # Deploy a new app
-appmo add <app-name> <github-tree-url>             # Deploy from subfolder
-appmo remove <app-name>                            # Remove an app
-appmo list                                          # List all apps
-appmo status [app-name]                            # Show app status
-```
-
-### App Control
-
-```bash
-appmo start <app-name>                             # Start an app
-appmo stop <app-name>                              # Stop an app
-appmo restart <app-name>                           # Restart an app
-appmo update <app-name>                            # Update app (auto-backup & rollback)
-```
-
-### Monitoring & Debugging
-
-```bash
-appmo logs <app-name> [lines]                      # View application logs
-appmo exec <app-name> <command>                    # Run command in app environment
-```
-
-### Backup & Restore
-
-```bash
-appmo backup <app-name>                            # Create backup
-appmo restore <app-name> [backup-id]               # Restore from backup
-appmo backups <app-name>                           # List available backups
-```
-
-## Managing Appmotel from Developer Accounts
 
 This guide explains how a developer account (e.g., `apps` user) can manage Appmotel using Claude Code or other automation tools. The system uses a three-tier permission model that allows secure, delegated control without requiring direct root access.
 
@@ -206,6 +162,16 @@ sudo -u appmotel appmo restore myapp 2025-01-10-120000
 
 # Restore from latest backup
 sudo -u appmotel appmo restore myapp
+```
+
+### Self-Update
+
+```bash
+# Update appmo CLI, Traefik binary, and configs
+sudo -u appmotel appmo self-update
+
+# After self-update, restart Traefik to apply changes
+sudo -u appmotel sudo systemctl restart traefik-appmotel
 ```
 
 ### Checking System Status
@@ -575,6 +541,9 @@ sudo -u appmotel appmo update <app>
 # Remove app
 sudo -u appmotel appmo remove <app>
 
+# Self-update appmotel components
+sudo -u appmotel appmo self-update
+
 # Check Traefik
 sudo -u appmotel sudo systemctl status traefik-appmotel
 ```
@@ -617,3 +586,8 @@ When running Claude Code as the `apps` user:
 8. ✅ **Use backups** before major changes
 
 This permission model enables secure, automated management without requiring root access.
+
+## See Also
+
+- [Traefik](traefik.md)
+- [Troubleshooting](troubleshooting.md)

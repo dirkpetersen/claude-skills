@@ -154,34 +154,89 @@ def sanitize_name(name: str) -> str:
     return name or "unnamed-skill"
 
 
-def skill_filename(meta: dict, fallback: str) -> str:
-    name = sanitize_name(meta.get("name") or fallback)
-    return f"{name}.md"
+def skill_dirname(meta: dict, fallback: str) -> str:
+    """Return the kebab-case directory name for a skill."""
+    return sanitize_name(meta.get("name") or fallback)
+
+
+# Skills that always get their own top-level folder even when found inside
+# another repo's .claude/skills/ — they are generic, not repo-specific.
+GENERIC_SKILLS = {
+    "bash", "zsh", "fish", "python", "javascript", "typescript", "nodejs",
+    "go", "rust", "java", "ruby", "php", "c", "cpp", "csharp", "swift",
+    "kotlin", "sql", "git", "docker", "kubernetes", "terraform", "ansible",
+}
 
 
 # ── install helper ─────────────────────────────────────────────────────────────
 
 def install_skill(
     content: str,
-    dest_name: str,
+    skill_dir: str,
     dry_run: bool,
     verbose: bool,
     overwrite: bool,
+    filename: str = "SKILL.md",
 ) -> bool:
-    dest = SKILLS_DIR / dest_name
+    dest = SKILLS_DIR / skill_dir / filename
+    label = f"{skill_dir}/{filename}"
     if dest.exists() and not overwrite:
         if verbose:
-            print(f"    (skip — {dest_name} already exists; use --overwrite to replace)")
+            print(f"    (skip — {label} already exists; use --overwrite to replace)")
         return False
     if dry_run:
         action = "overwrite" if dest.exists() else "create"
         print(f"    [dry-run] would {action} {dest}")
         return True
-    SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
     if verbose:
         print(f"    -> written {dest}")
+    # When placing a skill as a sub-file (e.g. appmotel/traefik.md), remove
+    # the now-redundant standalone directory (e.g. traefik/SKILL.md).
+    if filename != "SKILL.md":
+        standalone = SKILLS_DIR / Path(filename).stem / "SKILL.md"
+        if standalone.exists():
+            standalone.unlink()
+            if verbose:
+                print(f"    -> removed standalone {standalone.relative_to(SKILLS_DIR)}")
+            try:
+                standalone.parent.rmdir()   # succeeds only if dir is now empty
+            except OSError:
+                pass
     return True
+
+
+def _append_see_also(skill_dir: str, sub_files: list[str]) -> None:
+    """Add a ## See Also section to skill_dir/SKILL.md if not already present."""
+    skill_file = SKILLS_DIR / skill_dir / "SKILL.md"
+    if not skill_file.exists():
+        return
+    content = skill_file.read_text(encoding="utf-8")
+    if "## See Also" in content:
+        return
+    links = "\n".join(
+        f"- [{f.removesuffix('.md').replace('-', ' ').title()}]({f})"
+        for f in sorted(sub_files)
+    )
+    skill_file.write_text(content.rstrip() + f"\n\n## See Also\n\n{links}\n", encoding="utf-8")
+
+
+def _migrate_flat_skills(dry_run: bool, verbose: bool) -> None:
+    """Move any legacy .claude/skills/name.md  →  .claude/skills/name/SKILL.md"""
+    for md in sorted(SKILLS_DIR.glob("*.md")):
+        skill_name = md.stem
+        dest = SKILLS_DIR / skill_name / "SKILL.md"
+        if dest.exists():
+            if verbose:
+                print(f"  [migrate] {md.name} already at {skill_name}/SKILL.md — removing flat file")
+            if not dry_run:
+                md.unlink()
+            continue
+        print(f"  [migrate] {md.name} -> {skill_name}/SKILL.md")
+        if not dry_run:
+            dest.parent.mkdir(exist_ok=True)
+            md.rename(dest)
 
 
 # ── Source 1: local subfolders ─────────────────────────────────────────────────
@@ -202,9 +257,9 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 content = candidate.read_text(encoding="utf-8")
                 if is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
-                    fname = skill_filename(meta, item.name)
-                    print(f"  [local] {item.name}/{candidate.name} -> {fname}")
-                    install_skill(content, fname, dry_run, verbose, overwrite)
+                    sdir = skill_dirname(meta, item.name)
+                    print(f"  [local] {item.name}/{candidate.name} -> {sdir}/SKILL.md")
+                    install_skill(content, sdir, dry_run, verbose, overwrite)
                     installed = True
                     break
 
@@ -216,9 +271,9 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 content = md.read_text(encoding="utf-8", errors="replace")
                 if is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
-                    fname = skill_filename(meta, item.name)
-                    print(f"  [local] {item.name}/{md.name} -> {fname}")
-                    install_skill(content, fname, dry_run, verbose, overwrite)
+                    sdir = skill_dirname(meta, item.name)
+                    print(f"  [local] {item.name}/{md.name} -> {sdir}/SKILL.md")
+                    install_skill(content, sdir, dry_run, verbose, overwrite)
                     installed = True
                     break
 
@@ -239,9 +294,9 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     skill_content = _generate_skill_via_claude(text, item.name)
                 if skill_content and is_valid_skill(skill_content):
                     meta, _ = parse_frontmatter(skill_content)
-                    fname = skill_filename(meta, item.name)
-                    print(f"  [local+AI] {item.name}/{pdf.name} -> {fname}")
-                    install_skill(skill_content, fname, dry_run, verbose, overwrite)
+                    sdir = skill_dirname(meta, item.name)
+                    print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md")
+                    install_skill(skill_content, sdir, dry_run, verbose, overwrite)
                     installed = True
                     break
 
@@ -447,21 +502,58 @@ def collect_github_user(
             if item.get("type") == "blob"
         ]
 
+        repo_key = sanitize_name(repo_name)
+        dot_skills_paths = [
+            p for p in blobs
+            if p.startswith(".claude/skills/") and p.endswith(".md")
+        ]
         installed_paths: set[str] = set()
 
-        # 2-a  .claude/skills/*.md  — highest priority, already formatted
-        for path in blobs:
-            if path.startswith(".claude/skills/") and path.endswith(".md"):
+        # 2-a  .claude/skills/*.md — collect first, then group by repo
+        if dot_skills_paths:
+            # Fetch all skills from this repo's .claude/skills/
+            fetched: dict[str, tuple[dict, str]] = {}   # stem -> (meta, content)
+            for path in dot_skills_paths:
                 raw = f"{GITHUB_RAW_BASE}/{username}/{repo_name}/{branch}/{path}"
                 content = _fetch_raw(raw)
                 if content and is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
-                    fname = skill_filename(meta, Path(path).stem)
-                    print(f"  [github:{repo_name}] {path} -> {fname}")
-                    install_skill(content, fname, dry_run, verbose, overwrite)
-                    installed_paths.add(path)
+                    fetched[Path(path).stem] = (meta, content)
 
-        # 2-b  SKILL.md files anywhere in the repo
+            # Identify the primary skill (name matches the repo)
+            primary_stem = next(
+                (s for s, (m, _) in fetched.items()
+                 if sanitize_name(m.get("name") or s) == repo_key),
+                None,
+            )
+
+            sub_files_installed: list[str] = []
+
+            for stem, (meta, content) in fetched.items():
+                skill_name = sanitize_name(meta.get("name") or stem)
+                is_primary = (stem == primary_stem)
+                is_generic = skill_name in GENERIC_SKILLS
+
+                if is_primary:
+                    target_dir, target_file = repo_key, "SKILL.md"
+                elif primary_stem and not is_generic:
+                    # Sub-skill: lives inside the primary skill's folder
+                    target_dir  = repo_key
+                    target_file = f"{skill_name}.md"
+                    sub_files_installed.append(target_file)
+                else:
+                    # Generic / standalone skill — own top-level folder
+                    target_dir, target_file = skill_name, "SKILL.md"
+
+                print(f"  [github:{repo_name}] .claude/skills/{stem}.md -> {target_dir}/{target_file}")
+                install_skill(content, target_dir, dry_run, verbose, overwrite, filename=target_file)
+                installed_paths.add(f".claude/skills/{stem}.md")
+
+            # Link sub-files from the primary SKILL.md
+            if sub_files_installed and not dry_run:
+                _append_see_also(repo_key, sub_files_installed)
+
+        # 2-b  SKILL.md files anywhere in the repo (outside .claude/skills/)
         for path in blobs:
             if Path(path).name == "SKILL.md" and path not in installed_paths:
                 raw = f"{GITHUB_RAW_BASE}/{username}/{repo_name}/{branch}/{path}"
@@ -469,9 +561,9 @@ def collect_github_user(
                 if content and is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
                     folder = Path(path).parent.name or repo_name
-                    fname = skill_filename(meta, folder)
-                    print(f"  [github:{repo_name}] {path} -> {fname}")
-                    install_skill(content, fname, dry_run, verbose, overwrite)
+                    sdir = skill_dirname(meta, folder)
+                    print(f"  [github:{repo_name}] {path} -> {sdir}/SKILL.md")
+                    install_skill(content, sdir, dry_run, verbose, overwrite)
 
 
 # ── Source 3: skills.txt URLs ──────────────────────────────────────────────────
@@ -500,9 +592,9 @@ def collect_from_urls(dry_run: bool, verbose: bool, overwrite: bool) -> None:
         if content and is_valid_skill(content):
             meta, _ = parse_frontmatter(content)
             fallback = Path(urllib.parse.urlparse(url).path).name or "unnamed"
-            fname = skill_filename(meta, fallback)
-            print(f"  [url] {url} -> {fname}")
-            install_skill(content, fname, dry_run, verbose, overwrite)
+            sdir = skill_dirname(meta, fallback)
+            print(f"  [url] {url} -> {sdir}/SKILL.md")
+            install_skill(content, sdir, dry_run, verbose, overwrite)
         else:
             if verbose:
                 reason = "invalid frontmatter" if content else "not found"
@@ -629,6 +721,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         else:
             reason = "no 'claude' in PATH and ANTHROPIC_API_KEY not set"
         print(f"  AI generation: OFF  ({reason})")
+
+    _migrate_flat_skills(args.dry_run, args.verbose)
 
     if "local" in sources:
         collect_local(args.dry_run, args.verbose, generate, args.overwrite)
