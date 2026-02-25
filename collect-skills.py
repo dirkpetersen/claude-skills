@@ -351,6 +351,23 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     installed = True
                     break
 
+        # 1-d  Any markdown / text as AI source (README, .pdf.md, etc.)
+        if not installed and generate:
+            for md in sorted(item.rglob("*.md")):
+                if md.name.endswith(":Zone.Identifier"):
+                    continue
+                text = md.read_text(encoding="utf-8", errors="replace").strip()
+                if len(text) < 200:
+                    continue  # too little content to generate from
+                skill_content = _generate_skill_via_claude(text, item.name)
+                if skill_content and is_valid_skill(skill_content):
+                    meta, _ = parse_frontmatter(skill_content)
+                    sdir = skill_dirname(meta, item.name)
+                    st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                    print(f"  [local+AI] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
+                    installed = True
+                    break
+
         if not installed and verbose:
             print(f"    (nothing usable found in {item.name}/)")
 
