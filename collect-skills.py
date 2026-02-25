@@ -146,6 +146,22 @@ def _strip_code_fence(text: str) -> str:
     return s.strip()
 
 
+def _extract_skill_from_response(text: str) -> str:
+    """Extract the skill (starting with ---) from LLM output that may have preamble."""
+    s = _strip_code_fence(text)
+    if s.startswith("---"):
+        return s
+    # LLM added conversational text before the frontmatter — find the first ---
+    idx = s.find("\n---\n")
+    if idx != -1:
+        return s[idx + 1:]  # skip the leading newline
+    # Try just \n---
+    idx = s.find("\n---")
+    if idx != -1:
+        return s[idx + 1:]
+    return s
+
+
 def is_valid_skill(content: str) -> bool:
     """Quick validity check: needs --- delimiters, name, and description."""
     meta, _ = parse_frontmatter(content)
@@ -334,7 +350,15 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
 
     # ── now process each subfolder ──
     for item in subfolders:
+        skill_name = sanitize_name(item.name)
         installed = False
+
+        # Check if skill already exists on disk (also match e.g. aws-sdk-go-v2)
+        skill_on_disk = any(
+            (SKILLS_DIR / d.name / "SKILL.md").exists()
+            for d in [SKILLS_DIR / skill_name]
+            + list(SKILLS_DIR.glob(f"{skill_name}*"))
+        )
 
         # 1-a  explicit SKILL.md  (official format used by claude.ai)
         for candidate in (item / "SKILL.md", item / "skill.md"):
@@ -361,6 +385,11 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     print(f"  [local] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
                     installed = True
                     break
+
+        # Skip AI generation if skill already exists (use --overwrite to force)
+        if not installed and skill_on_disk and not overwrite:
+            print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [skill on disk, skip generation]")
+            continue
 
         # 1-c  PDFs
         #   - claude CLI available: pass pdf_path directly (CLI reads PDFs natively)
@@ -522,12 +551,7 @@ BODY RULES:
                 capture_output=True, text=True, timeout=120,
             )
             if result.returncode == 0 and result.stdout.strip():
-                raw = _strip_code_fence(result.stdout)
-                if raw.startswith("---"):
-                    return raw
-                # CLI returned text but not in skill format — try to salvage
-                print(f"    WARNING: claude CLI output does not start with '---' frontmatter")
-                return raw  # let caller decide via is_valid_skill
+                return _extract_skill_from_response(result.stdout)
             print(f"    WARNING: claude CLI non-zero exit: {result.stderr[:200]}")
         except Exception as exc:
             print(f"    WARNING: claude CLI error: {exc}")
@@ -578,8 +602,7 @@ BODY RULES:
             max_tokens=4096,
             messages=[{"role": "user", "content": full_prompt}],
         )
-        raw = _strip_code_fence(msg.content[0].text)
-        return raw
+        return _extract_skill_from_response(msg.content[0].text)
     except Exception as exc:
         print(f"    WARNING: {backend} error: {exc}")
         return None
