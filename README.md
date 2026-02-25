@@ -48,7 +48,7 @@ python collect-skills.py --overwrite
 --dry-run              Show what would happen without writing files
 -v, --verbose          Extra output
 --source SOURCE [...]  Sources: local, github, urls (default: all three)
---github-user NAME     GitHub user to scan (default: dirkpetersen)
+--github-user NAME     GitHub user/org to scan (default: from git push remote)
 --no-generate          Disable AI generation from PDF/text docs
 --overwrite            Replace skills that already exist on disk
 ```

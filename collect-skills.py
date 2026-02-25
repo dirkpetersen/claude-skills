@@ -4,7 +4,7 @@ collect_skills.py — Aggregate Claude Code skills from multiple sources.
 
 Sources:
   1. Non-dot subfolders in this repo  (SKILL.md, *.md with frontmatter, PDFs via AI)
-  2. All public repos of a GitHub user (default: dirkpetersen)
+  2. All public repos of a GitHub user (default: owner from git push remote)
      — copies from .claude/skills/ folders and SKILL.md files anywhere in the repo
   3. URLs listed in skills.txt
      — fetches SKILL.md from the direct folder at each URL
@@ -22,7 +22,7 @@ Usage:
 Options:
   --dry-run             Show what would happen without writing files
   -v, --verbose         Extra output
-  --github-user NAME    GitHub user to scan (default: dirkpetersen)
+  --github-user NAME    GitHub user to scan (default: from git push remote)
   --source {local,github,urls} [...]
                         One or more sources to collect from (default: all three)
   --no-generate         Disable skill generation from PDF/text docs
@@ -60,6 +60,25 @@ SKILLS_TXT  = REPO_ROOT / "skills.txt"
 GUIDE_PDF   = REPO_ROOT / "The-Complete-Guide-to-Building-Skill-for-Claude.pdf"
 
 _guide_text_cache: Optional[str] = None   # SDK fallback: extracted once, reused
+
+
+def _github_owner_from_remote() -> Optional[str]:
+    """Extract the GitHub user/org from the git push remote (origin or upstream)."""
+    for remote in ("upstream", "origin"):
+        try:
+            url = subprocess.run(
+                ["git", "-C", str(REPO_ROOT), "remote", "get-url", "--push", remote],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+        except Exception:
+            continue
+        if not url:
+            continue
+        # git@github.com:owner/repo.git  or  https://github.com/owner/repo.git
+        m = re.search(r"github\.com[:/]([^/]+)/", url)
+        if m:
+            return m.group(1)
+    return None
 
 
 def _guide_text() -> str:
@@ -847,9 +866,10 @@ def main(argv: Optional[list[str]] = None) -> int:
         "-v", "--verbose", action="store_true",
         help="Extra output",
     )
+    _default_user = _github_owner_from_remote() or "dirkpetersen"
     parser.add_argument(
-        "--github-user", default="dirkpetersen", metavar="NAME",
-        help="GitHub username to scan (default: dirkpetersen)",
+        "--github-user", default=_default_user, metavar="NAME",
+        help=f"GitHub username/org to scan (default: {_default_user})",
     )
     parser.add_argument(
         "--source", nargs="+", choices=["local", "github", "urls"],
