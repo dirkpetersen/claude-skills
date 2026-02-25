@@ -1,0 +1,43 @@
+name: Collect Skills
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # daily at 03:00 UTC
+  workflow_dispatch:        # also allow manual trigger from the Actions tab
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # needed to push the updated skills back to the repo
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PDF extraction library
+        run: pip install pymupdf4llm anthropic
+
+      - name: Run collect-skills.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}   # raises GitHub API rate limit 60 → 5000/h
+        run: python collect-skills.py --overwrite
+
+      - name: Commit and push updated skills
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude/skills/
+          # Only commit if something actually changed
+          if git diff --cached --quiet; then
+            echo "No skill changes — nothing to commit."
+          else
+            git commit -m "chore: auto-collect skills $(date -u '+%Y-%m-%d')"
+            git push
+          fi
