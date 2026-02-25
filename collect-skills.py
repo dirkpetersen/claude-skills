@@ -257,8 +257,9 @@ def _migrate_flat_skills(dry_run: bool, verbose: bool) -> None:
 # ── Source 1: local subfolders ─────────────────────────────────────────────────
 
 def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool) -> None:
-    print("\n=== Source 1: local subfolders ===")
-    for item in sorted(REPO_ROOT.iterdir()):
+    subfolders = [i for i in sorted(REPO_ROOT.iterdir()) if i.is_dir() and not i.name.startswith(".")]
+    print(f"\n=== Source 1: local subfolders ({len(subfolders)} found) ===")
+    for item in subfolders:
         if not item.is_dir() or item.name.startswith("."):
             continue
         if verbose:
@@ -405,13 +406,14 @@ BODY RULES:
             f"to understand the required format and rules. "
         ) if GUIDE_PDF.exists() else ""
         if guide_clause:
-            print(f"    Reading {GUIDE_PDF.name} …")
+            print(f"    Reading {GUIDE_PDF.name} as rules context …")
         if pdf_path:
             prompt = (
                 f"{guide_clause}"
                 f"Then read the documentation PDF at {pdf_path} and create a "
                 f"Claude Code skill file for it with the name '{skill_name}'.\n\n{instructions}"
             )
+            print(f"    Invoking claude CLI: read guide + read {pdf_path.name} → generate {skill_name}/SKILL.md")
         else:
             doc_excerpt = (doc_text or "")[:14000]
             prompt = (
@@ -419,6 +421,7 @@ BODY RULES:
                 f"Then create a Claude Code skill file named '{skill_name}' from "
                 f"this documentation:\n\n{doc_excerpt}\n\n{instructions}"
             )
+            print(f"    Invoking claude CLI: read guide + inline doc → generate {skill_name}/SKILL.md")
         try:
             result = subprocess.run(
                 [claude_bin, "-p", prompt],
@@ -448,8 +451,9 @@ BODY RULES:
 
     guide = _guide_text()
     if guide:
-        print(f"    Reading {GUIDE_PDF.name} (text extraction) …")
+        print(f"    Reading {GUIDE_PDF.name} as rules context (text extraction) …")
     guide_section = f"Skill-building guide (read and follow these rules):\n\n{guide}\n\n" if guide else ""
+    print(f"    Invoking Anthropic SDK: {'guide + ' if guide else ''}inline doc → generate {skill_name}/SKILL.md")
     full_prompt = (
         f"{guide_section}"
         f"Create a Claude Code skill file named '{skill_name}' from "
