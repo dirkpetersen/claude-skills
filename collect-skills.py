@@ -297,9 +297,9 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
         tag = _source_tag(item)
         status_str = "skill on disk" if skill_exists else "skill missing"
         print(f"  {item.name}/  →  {skill_name}/SKILL.md  [{tag}]  [{status_str}]")
-    if verbose:
-        print()
 
+    # ── now process each subfolder ──
+    for item in subfolders:
         installed = False
 
         # 1-a  explicit SKILL.md  (official format used by claude.ai)
