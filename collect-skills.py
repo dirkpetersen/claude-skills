@@ -192,21 +192,26 @@ def install_skill(
     verbose: bool,
     overwrite: bool,
     filename: str = "SKILL.md",
-) -> bool:
+) -> str:
+    """Write skill file and return status: 'created' | 'updated' | 'unchanged' | 'skipped' | 'dry-run'."""
     dest = SKILLS_DIR / skill_dir / filename
     label = f"{skill_dir}/{filename}"
-    if dest.exists() and not overwrite:
-        if verbose:
-            print(f"    (skip — {label} already exists; use --overwrite to replace)")
-        return False
+    if dest.exists():
+        if dest.read_text(encoding="utf-8") == content:
+            return "unchanged"
+        if not overwrite:
+            if verbose:
+                print(f"    (skip — {label} exists and differs; use --overwrite to replace)")
+            return "skipped"
     if dry_run:
-        action = "overwrite" if dest.exists() else "create"
+        action = "update" if dest.exists() else "create"
         print(f"    [dry-run] would {action} {dest}")
-        return True
+        return "dry-run"
+    status = "updated" if dest.exists() else "created"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(content, encoding="utf-8")
     if verbose:
-        print(f"    -> written {dest}")
+        print(f"    -> {status}: {dest}")
     # When placing a skill as a sub-file (e.g. appmotel/traefik.md), remove
     # the now-redundant standalone directory (e.g. traefik/SKILL.md).
     if filename != "SKILL.md":
@@ -216,10 +221,10 @@ def install_skill(
             if verbose:
                 print(f"    -> removed standalone {standalone.relative_to(SKILLS_DIR)}")
             try:
-                standalone.parent.rmdir()   # succeeds only if dir is now empty
+                standalone.parent.rmdir()
             except OSError:
                 pass
-    return True
+    return status
 
 
 def _append_see_also(skill_dir: str, sub_files: list[str]) -> None:
@@ -256,14 +261,44 @@ def _migrate_flat_skills(dry_run: bool, verbose: bool) -> None:
 
 # ── Source 1: local subfolders ─────────────────────────────────────────────────
 
+def _source_tag(item: Path) -> str:
+    """Describe the best available source material in a subfolder."""
+    if (item / "SKILL.md").exists() or (item / "skill.md").exists():
+        return "SKILL.md"
+    mds = [f for f in item.glob("*.md") if f.name.upper() != "README.MD"]
+    if mds:
+        return f"{mds[0].name}"
+    pdfs = list(item.rglob("*.pdf"))
+    pdfs = [p for p in pdfs if not p.name.endswith(":Zone.Identifier")]
+    if pdfs:
+        return f"PDF ({len(pdfs)} file{'s' if len(pdfs) > 1 else ''})"
+    if (item / "README.md").exists():
+        return "README only"
+    return "no source"
+
+
+_SKIP_DIRS = {"__pycache__", "node_modules", ".venv", "venv", ".tox", "dist", "build"}
+
+
 def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool) -> None:
-    subfolders = [i for i in sorted(REPO_ROOT.iterdir()) if i.is_dir() and not i.name.startswith(".")]
+    subfolders = [
+        i for i in sorted(REPO_ROOT.iterdir())
+        if i.is_dir() and not i.name.startswith(".") and i.name not in _SKIP_DIRS
+    ]
     print(f"\n=== Source 1: local subfolders ({len(subfolders)} found) ===")
     for item in subfolders:
-        if not item.is_dir() or item.name.startswith("."):
-            continue
-        if verbose:
-            print(f"  Scanning {item.name}/")
+        skill_name = sanitize_name(item.name)
+        # Also match e.g. aws-sdk-go-v2 for folder aws-sdk-go
+        skill_exists = any(
+            (SKILLS_DIR / d.name / "SKILL.md").exists()
+            for d in [SKILLS_DIR / skill_name]
+            + list(SKILLS_DIR.glob(f"{skill_name}*"))
+        )
+        tag = _source_tag(item)
+        status_str = "skill exists" if skill_exists else "no skill yet"
+        print(f"  {item.name}/  →  {skill_name}/SKILL.md  [{tag}]  [{status_str}]")
+    if verbose:
+        print()
 
         installed = False
 
@@ -274,8 +309,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 if is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
                     sdir = skill_dirname(meta, item.name)
-                    print(f"  [local] {item.name}/{candidate.name} -> {sdir}/SKILL.md")
-                    install_skill(content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(content, sdir, dry_run, verbose, overwrite)
+                    print(f"  [local] {item.name}/{candidate.name} -> {sdir}/SKILL.md  [{st}]")
                     installed = True
                     break
 
@@ -288,8 +323,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 if is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
                     sdir = skill_dirname(meta, item.name)
-                    print(f"  [local] {item.name}/{md.name} -> {sdir}/SKILL.md")
-                    install_skill(content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(content, sdir, dry_run, verbose, overwrite)
+                    print(f"  [local] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
                     installed = True
                     break
 
@@ -311,8 +346,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 if skill_content and is_valid_skill(skill_content):
                     meta, _ = parse_frontmatter(skill_content)
                     sdir = skill_dirname(meta, item.name)
-                    print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md")
-                    install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                    print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md  [{st}]")
                     installed = True
                     break
 
@@ -581,8 +616,8 @@ def collect_github_user(
                     # Generic / standalone skill — own top-level folder
                     target_dir, target_file = skill_name, "SKILL.md"
 
-                print(f"  [github:{repo_name}] .claude/skills/{stem}.md -> {target_dir}/{target_file}")
-                install_skill(content, target_dir, dry_run, verbose, overwrite, filename=target_file)
+                st = install_skill(content, target_dir, dry_run, verbose, overwrite, filename=target_file)
+                print(f"  [github:{repo_name}] .claude/skills/{stem}.md -> {target_dir}/{target_file}  [{st}]")
                 installed_paths.add(f".claude/skills/{stem}.md")
 
             # Link sub-files from the primary SKILL.md
@@ -598,8 +633,8 @@ def collect_github_user(
                     meta, _ = parse_frontmatter(content)
                     folder = Path(path).parent.name or repo_name
                     sdir = skill_dirname(meta, folder)
-                    print(f"  [github:{repo_name}] {path} -> {sdir}/SKILL.md")
-                    install_skill(content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(content, sdir, dry_run, verbose, overwrite)
+                    print(f"  [github:{repo_name}] {path} -> {sdir}/SKILL.md  [{st}]")
 
 
 # ── Source 3: skills.txt URLs ──────────────────────────────────────────────────
@@ -629,8 +664,8 @@ def collect_from_urls(dry_run: bool, verbose: bool, overwrite: bool) -> None:
             meta, _ = parse_frontmatter(content)
             fallback = Path(urllib.parse.urlparse(url).path).name or "unnamed"
             sdir = skill_dirname(meta, fallback)
-            print(f"  [url] {url} -> {sdir}/SKILL.md")
-            install_skill(content, sdir, dry_run, verbose, overwrite)
+            st = install_skill(content, sdir, dry_run, verbose, overwrite)
+            print(f"  [url] {url} -> {sdir}/SKILL.md  [{st}]")
         else:
             if verbose:
                 reason = "invalid frontmatter" if content else "not found"
