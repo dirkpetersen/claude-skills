@@ -57,6 +57,21 @@ from typing import Optional
 REPO_ROOT   = Path(__file__).resolve().parent
 SKILLS_DIR  = REPO_ROOT / ".claude" / "skills"
 SKILLS_TXT  = REPO_ROOT / "skills.txt"
+GUIDE_PDF   = REPO_ROOT / "The-Complete-Guide-to-Building-Skill-for-Claude.pdf"
+
+_guide_text_cache: Optional[str] = None   # SDK fallback: extracted once, reused
+
+
+def _guide_text() -> str:
+    """Return extracted text from the skill-building guide PDF (cached)."""
+    global _guide_text_cache
+    if _guide_text_cache is None:
+        if GUIDE_PDF.exists():
+            text = _extract_pdf_text(GUIDE_PDF)
+            _guide_text_cache = (text or "")[:10000]
+        else:
+            _guide_text_cache = ""
+    return _guide_text_cache
 
 GITHUB_API_BASE = "https://api.github.com"
 GITHUB_RAW_BASE = "https://raw.githubusercontent.com"
@@ -385,15 +400,23 @@ BODY RULES:
     # ── primary: claude CLI ────────────────────────────────────────────────────
     claude_bin = shutil.which("claude")
     if claude_bin:
+        guide_clause = (
+            f"First read the skill-building guide at {GUIDE_PDF} "
+            f"to understand the required format and rules. "
+        ) if GUIDE_PDF.exists() else ""
+        if guide_clause:
+            print(f"    Reading {GUIDE_PDF.name} …")
         if pdf_path:
             prompt = (
-                f"Read the PDF at {pdf_path} and create a Claude Code skill file "
-                f"for it with the name '{skill_name}'.\n\n{instructions}"
+                f"{guide_clause}"
+                f"Then read the documentation PDF at {pdf_path} and create a "
+                f"Claude Code skill file for it with the name '{skill_name}'.\n\n{instructions}"
             )
         else:
             doc_excerpt = (doc_text or "")[:14000]
             prompt = (
-                f"Create a Claude Code skill file named '{skill_name}' from "
+                f"{guide_clause}"
+                f"Then create a Claude Code skill file named '{skill_name}' from "
                 f"this documentation:\n\n{doc_excerpt}\n\n{instructions}"
             )
         try:
@@ -423,7 +446,12 @@ BODY RULES:
         print("    WARNING: ANTHROPIC_API_KEY not set and claude CLI unavailable.")
         return None
 
+    guide = _guide_text()
+    if guide:
+        print(f"    Reading {GUIDE_PDF.name} (text extraction) …")
+    guide_section = f"Skill-building guide (read and follow these rules):\n\n{guide}\n\n" if guide else ""
     full_prompt = (
+        f"{guide_section}"
         f"Create a Claude Code skill file named '{skill_name}' from "
         f"this documentation:\n\n{doc_text[:14000]}\n\n{instructions}"
     )
@@ -466,9 +494,13 @@ def collect_github_user(
             break
         page += 1
 
-    print(f"  Found {len(repos)} public repos")
-
     cutoff = datetime.now(timezone.utc).timestamp() - 30 * 86400
+    recent = sum(
+        1 for r in repos
+        if r.get("pushed_at")
+        and datetime.fromisoformat(r["pushed_at"].replace("Z", "+00:00")).timestamp() >= cutoff
+    )
+    print(f"  Found {len(repos)} public repos, {recent} active in the last 30 days")
 
     for repo in repos:
         repo_name: str = repo["name"]
