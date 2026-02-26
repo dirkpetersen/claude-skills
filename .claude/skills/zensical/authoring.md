@@ -2,114 +2,113 @@
 
 ## Markdown Basics
 
-Zensical uses Python Markdown (compatible with Material for MkDocs). Use relative links to other Markdown files — Zensical translates them to correct HTML links:
+Zensical uses Python Markdown for compatibility with Material for MkDocs. Use relative links to other Markdown files — Zensical translates them correctly.
 
-```markdown
-[See setup guide](../setup/basics.md)
-```
-
-Page title priority: nav config → front matter title → first `#` heading → filename.
-
----
-
-## Front Matter
-
-Front matter is YAML at the top of a Markdown file between `---` delimiters.
-
-```yaml
----
-title: My Page Title
-description: A short description for the HTML meta tag.
-icon: lucide/braces
-status: new
-template: my_template.html
-tags:
-  - HTML5
-  - JavaScript
-hide:
-  - navigation
-  - toc
-  - footer
-  - path
-  - tags
-  - feedback
-search:
-  exclude: true
-robots: noindex, nofollow
----
-```
-
-### Page status
-
-Define statuses in config:
-
-```toml
-[project.extra.status]
-new = "Recently added"
-deprecated = "Deprecated"
-```
-
-Built-in identifiers: `new`, `deprecated`.
+Page title priority: nav config → front matter → first H1 → filename.
 
 ---
 
 ## Admonitions
 
-Requires: `admonition`, `pymdownx.details`, `pymdownx.superfences` extensions.
+Requires: `admonition`, `pymdownx.details`, `pymdownx.superfences`
+
+```toml
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.superfences]
+```
+
+### Basic admonition
 
 ```markdown
 !!! note
-    Content here, indented 4 spaces.
 
-!!! note "Custom title"
-    Content with a custom title.
+    Content here, indented four spaces.
+```
 
+### Custom title
+
+```markdown
+!!! note "My Custom Title"
+
+    Content here.
+```
+
+### No title
+
+```markdown
 !!! note ""
-    Admonition with no title.
+
+    Content here.
 ```
 
 ### Collapsible
 
 ```markdown
 ??? note
+
     Collapsed by default.
 
 ???+ note
+
     Expanded by default.
 ```
 
-### Inline
+### Inline blocks
 
 ```markdown
 !!! info inline end "Title"
+
     Floats to the right.
 
 !!! info inline "Title"
+
     Floats to the left.
 ```
-
-Inline admonitions must be declared before the content block they float beside.
 
 ### Supported types
 
 `note`, `abstract`, `info`, `tip`, `success`, `question`, `warning`, `failure`, `danger`, `bug`, `example`, `quote`
 
-### Custom admonition icons
+### Nested admonitions
 
-```toml
-[project.theme.icon.admonition]
-note = "octicons/tag-16"
-warning = "octicons/alert-16"
+```markdown
+!!! note "Outer"
+
+    Outer content.
+
+    !!! note "Inner"
+
+        Inner content.
 ```
 
 ---
 
 ## Code Blocks
 
-Requires: `pymdownx.highlight`, `pymdownx.inlinehilite`, `pymdownx.snippets`, `pymdownx.superfences`.
+Requires:
+
+```toml
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.snippets]
+[project.markdown_extensions.pymdownx.superfences]
+```
+
+Enable copy/select buttons globally:
+
+```toml
+[project.theme]
+features = ["content.code.copy", "content.code.select"]
+```
+
+### Basic code block
 
 ````markdown
-``` python
+``` py
 import tensorflow as tf
 ```
 ````
@@ -117,46 +116,42 @@ import tensorflow as tf
 ### With title
 
 ````markdown
-``` python title="bubble_sort.py"
+``` py title="bubble_sort.py"
 def bubble_sort(items):
     pass
 ```
 ````
 
-### Line numbers
+### With line numbers
 
 ````markdown
-``` python linenums="1"
-def example():
+``` py linenums="1"
+def bubble_sort(items):
     pass
 ```
 ````
 
-### Highlight lines
+### Highlight specific lines
 
 ````markdown
-``` python hl_lines="2 3"
-def example():
-    line_two = True
-    line_three = True
+``` py hl_lines="2 3"
+def f():
+    x = 1
+    y = 2
+    return x + y
 ```
 ````
 
-Line ranges:
+Line ranges: `hl_lines="3-5"`
 
-````markdown
-``` python hl_lines="2-4"
-```
-````
-
-### Code annotations
+### Annotations
 
 ````markdown
 ``` toml
 features = ["content.code.annotate"] # (1)!
 ```
 
-1.  I'm a code annotation! I can contain `code`, **text**, images.
+1.  I'm a code annotation!
 ````
 
 Strip comment characters with `!`:
@@ -166,7 +161,7 @@ Strip comment characters with `!`:
 # (1)!
 ```
 
-1.  Look ma, less line noise!
+1.  Less noise!
 ````
 
 ### Inline code highlighting
@@ -183,18 +178,15 @@ The `#!python range()` function generates a sequence.
 ```
 ````
 
-### Copy/select buttons
-
-```toml
-[project.theme]
-features = ["content.code.copy", "content.code.select"]
-```
-
-Per-block override using attribute lists:
+### Per-block copy/select toggle
 
 ````markdown
 ``` { .yaml .copy }
-key: value
+code here
+```
+
+``` { .yaml .no-copy }
+code here
 ```
 ````
 
@@ -202,27 +194,48 @@ key: value
 
 ## Content Tabs
 
-Requires: `pymdownx.superfences`, `pymdownx.tabbed` with `alternate_style = true`.
+Requires:
+
+```toml
+[project.markdown_extensions.pymdownx.superfences]
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+```
+
+Linked tabs (sync across page):
+
+```toml
+features = ["content.tabs.link"]
+```
+
+### Code tabs
 
 ```markdown
 === "Python"
 
-    ``` python
+    ``` py
     print("Hello")
     ```
 
 === "JavaScript"
 
-    ``` javascript
+    ``` js
     console.log("Hello")
     ```
 ```
 
-### Linked tabs (sync across page)
+### Other content tabs
 
-```toml
-[project.theme]
-features = ["content.tabs.link"]
+```markdown
+=== "Unordered list"
+
+    * Item 1
+    * Item 2
+
+=== "Ordered list"
+
+    1. Item 1
+    2. Item 2
 ```
 
 ### Tabs in admonitions
@@ -230,10 +243,12 @@ features = ["content.tabs.link"]
 ```markdown
 !!! example
 
-    === "Option A"
+    === "Tab A"
+
         Content A
 
-    === "Option B"
+    === "Tab B"
+
         Content B
 ```
 
@@ -241,29 +256,32 @@ features = ["content.tabs.link"]
 
 ## Data Tables
 
-Requires: `tables` extension.
+Requires:
+
+```toml
+[project.markdown_extensions.tables]
+```
 
 ```markdown
-| Method   | Description        |
-| -------- | ------------------ |
-| `GET`    | Fetch resource     |
-| `PUT`    | Update resource    |
-| `DELETE` | Delete resource    |
+| Method   | Description         |
+| -------- | ------------------- |
+| `GET`    | Fetch resource      |
+| `DELETE` | Delete resource     |
 ```
 
 ### Column alignment
 
 ```markdown
-| Left     | Center  | Right   |
-| :------- | :-----: | ------: |
-| A        | B       | C       |
+| Left     | Center   | Right    |
+| :------- | :------: | -------: |
+| text     | text     | text     |
 ```
 
 ### Sortable tables
 
-Add tablesort via extra JavaScript:
+Add JavaScript:
 
-```javascript
+```js
 document$.subscribe(function() {
   var tables = document.querySelectorAll("article table:not([class])")
   tables.forEach(function(table) {
@@ -284,7 +302,7 @@ extra_javascript = [
 
 ## Diagrams (Mermaid.js)
 
-Requires: `pymdownx.superfences` with `custom_fences` for mermaid.
+Requires:
 
 ```toml
 [project.markdown_extensions.pymdownx.superfences]
@@ -292,6 +310,8 @@ custom_fences = [
   { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" }
 ]
 ```
+
+### Flowchart
 
 ````markdown
 ``` mermaid
@@ -302,30 +322,46 @@ graph LR
 ```
 ````
 
-Supported diagram types: flowcharts (`graph`), sequence diagrams (`sequenceDiagram`), state diagrams (`stateDiagram-v2`), class diagrams (`classDiagram`), entity-relationship diagrams (`erDiagram`).
+### Sequence diagram
 
-Other types (pie charts, gantt, user journeys, git graphs, requirement diagrams) work but are not officially supported.
+````markdown
+``` mermaid
+sequenceDiagram
+  Alice->>John: Hello!
+  John-->>Alice: Hi!
+```
+````
+
+### State, class, entity-relationship diagrams are also supported.
 
 ---
 
 ## Footnotes
 
-Requires: `footnotes` extension.
-
-```markdown
-Lorem ipsum[^1] dolor sit amet.[^2]
-
-[^1]: Short footnote on one line.
-
-[^2]:
-    Multi-line footnote, indented by four spaces.
-    More content here.
-```
-
-### Footnote tooltips
+Requires:
 
 ```toml
-[project.theme]
+[project.markdown_extensions.footnotes]
+```
+
+```markdown
+Text with a footnote[^1].
+
+[^1]: The footnote content.
+```
+
+Multi-line footnote:
+
+```markdown
+[^2]:
+    First paragraph.
+
+    Second paragraph.
+```
+
+Footnote tooltips:
+
+```toml
 features = ["content.footnote.tooltips"]
 ```
 
@@ -333,12 +369,19 @@ features = ["content.footnote.tooltips"]
 
 ## Formatting
 
-Requires: `pymdownx.caret`, `pymdownx.mark`, `pymdownx.tilde`, `pymdownx.keys`.
+Requires:
+
+```toml
+[project.markdown_extensions.pymdownx.caret]
+[project.markdown_extensions.pymdownx.keys]
+[project.markdown_extensions.pymdownx.mark]
+[project.markdown_extensions.pymdownx.tilde]
+```
 
 ```markdown
-- ==highlighted==
-- ^^underline/inserted^^
-- ~~strikethrough/deleted~~
+- ==Highlighted==
+- ^^Underlined^^
+- ~~Strikethrough~~
 - H~2~O
 - A^T^A
 - ++ctrl+alt+del++
@@ -346,33 +389,64 @@ Requires: `pymdownx.caret`, `pymdownx.mark`, `pymdownx.tilde`, `pymdownx.keys`.
 
 ---
 
+## Front Matter
+
+```yaml
+---
+title: Custom Page Title
+description: Meta description for SEO
+icon: lucide/braces
+status: new
+tags:
+  - Tag1
+template: my_template.html
+hide:
+  - navigation
+  - toc
+  - path
+  - footer
+  - tags
+  - feedback
+search:
+  exclude: true
+comments: true
+robots: noindex, nofollow
+---
+```
+
+Page status identifiers: `new`, `deprecated` (built-in). Custom statuses configured in `extra.status`.
+
+---
+
 ## Grids
 
-Requires: `attr_list`, `md_in_html`.
+Requires:
+
+```toml
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+```
 
 ### Card grid (list syntax)
 
 ```html
 <div class="grid cards" markdown>
 
-- :fontawesome-brands-html5: __HTML__ for content and structure
+- :fontawesome-brands-html5: __HTML__ for content
 - :fontawesome-brands-js: __JavaScript__ for interactivity
 
 </div>
 ```
 
-### Card grid (complex, block syntax)
+### Card grid (block syntax)
 
 ```html
-<div class="grid cards" markdown>
+<div class="grid" markdown>
 
--   :material-clock-fast:{ .lg .middle } __Set up in 5 minutes__
+Content block
+{ .card }
 
-    ---
-
-    Install and get started quickly.
-
-    [:octicons-arrow-right-24: Getting started](#)
+> Blockquote
 
 </div>
 ```
@@ -388,6 +462,10 @@ Requires: `attr_list`, `md_in_html`.
 === "Tab B"
     Content B
 
+``` title="Example"
+code here
+```
+
 </div>
 ```
 
@@ -395,31 +473,21 @@ Requires: `attr_list`, `md_in_html`.
 
 ## Icons and Emojis
 
-Requires: `attr_list`, `pymdownx.emoji`.
+Requires:
+
+```toml
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.pymdownx.emoji]
+```
 
 ```markdown
 :smile:
 :fontawesome-regular-face-laugh-wink:
-:material-heart:
-:octicons-heart-fill-24:
-:simple-lucide:
-```
-
-Included icon sets: Lucide, Material Design, FontAwesome, Octicons, Simple Icons.
-
-### Icon with color
-
-```markdown
 :fontawesome-brands-youtube:{ .youtube }
+:octicons-heart-fill-24:{ .heart }
 ```
 
-```css
-.youtube {
-  color: #EE0F0F;
-}
-```
-
-### Icon in template
+Use in templates:
 
 ```html
 <span class="twemoji">
@@ -431,33 +499,46 @@ Included icon sets: Lucide, Material Design, FontAwesome, Octicons, Simple Icons
 
 ## Images
 
-Requires: `attr_list`, `md_in_html`, `pymdownx.blocks.caption`.
+Requires:
+
+```toml
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.pymdownx.blocks.caption]
+```
+
+### Alignment
 
 ```markdown
-![Alt text](image.png){ align=left }
-![Alt text](image.png){ align=right }
-![Alt text](image.png){ loading=lazy }
+![Image](image.png){ align=left }
+![Image](image.png){ align=right }
 ```
 
 ### Caption
 
 ```markdown
-![Image title](image.png){ width="300" }
+![Image](image.png){ width="300" }
 /// caption
 Image caption
 ///
 ```
 
-Or using HTML:
+Or with HTML:
 
 ```html
 <figure markdown="span">
-  ![Image title](image.png){ width="300" }
-  <figcaption>Caption text</figcaption>
+  ![Image](image.png){ width="300" }
+  <figcaption>Caption</figcaption>
 </figure>
 ```
 
-### Light and dark mode images
+### Lazy loading
+
+```markdown
+![Image](image.png){ loading=lazy }
+```
+
+### Light/dark mode images
 
 ```markdown
 ![Light](image-light.png#only-light)
@@ -468,38 +549,35 @@ Or using HTML:
 
 ## Lists
 
-Requires: `def_list`, `pymdownx.tasklist` (for definition and task lists).
+Requires (for definition lists and task lists):
 
-### Unordered
-
-```markdown
-- Item one
-- Item two
-    * Nested item
+```toml
+[project.markdown_extensions.def_list]
+[project.markdown_extensions.pymdownx.tasklist]
+custom_checkbox = true
 ```
 
-### Ordered
+### Unordered and ordered lists
 
-```markdown
-1.  First item
-2.  Second item
-    1.  Nested
-```
+Standard Markdown syntax. Lists can be nested.
 
-### Definition list
+### Definition lists
 
 ```markdown
 `Term`
-:   Definition text here.
+:   Definition paragraph.
+
+`Another term`
+:   Another definition.
 ```
 
-### Task list
+### Task lists
 
 ```markdown
-- [x] Completed task
-- [ ] Incomplete task
+- [x] Done item
+- [ ] Pending item
     * [x] Nested done
-    * [ ] Nested todo
+    * [ ] Nested pending
 ```
 
 ---
@@ -508,9 +586,20 @@ Requires: `def_list`, `pymdownx.tasklist` (for definition and task lists).
 
 ### MathJax
 
-Add `docs/javascripts/mathjax.js`:
+```toml
+[project]
+extra_javascript = [
+  "javascripts/mathjax.js",
+  "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"
+]
 
-```javascript
+[project.markdown_extensions.pymdownx.arithmatex]
+generic = true
+```
+
+`docs/javascripts/mathjax.js`:
+
+```js
 window.MathJax = {
   tex: {
     inlineMath: [["\\(", "\\)"]],
@@ -532,17 +621,6 @@ document$.subscribe(() => {
 })
 ```
 
-```toml
-[project]
-extra_javascript = [
-  "javascripts/mathjax.js",
-  "https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"
-]
-
-[project.markdown_extensions.pymdownx.arithmatex]
-generic = true
-```
-
 Block math:
 
 ```latex
@@ -551,13 +629,9 @@ $$
 $$
 ```
 
-Inline math:
+Inline math: `$f(x) = x^2$`
 
-```latex
-The function $f$ is injective if and only if $a \neq b$.
-```
-
-### KaTeX
+### KaTeX (alternative)
 
 ```toml
 [project]
@@ -576,15 +650,27 @@ generic = true
 
 ## Tooltips and Abbreviations
 
-Requires: `abbr`, `attr_list`, `pymdownx.snippets`.
+Requires:
 
-### Inline tooltip on link
+```toml
+[project.markdown_extensions.abbr]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.pymdownx.snippets]
+```
+
+Improved tooltips:
+
+```toml
+features = ["content.tooltips"]
+```
+
+### Link tooltip
 
 ```markdown
 [Hover me](https://example.com "I'm a tooltip!")
 ```
 
-### Tooltip on element
+### Icon tooltip
 
 ```markdown
 :material-information-outline:{ title="Important information" }
@@ -593,7 +679,7 @@ Requires: `abbr`, `attr_list`, `pymdownx.snippets`.
 ### Abbreviations
 
 ```markdown
-The HTML specification is maintained by the W3C.
+The HTML spec is maintained by the W3C.
 
 *[HTML]: Hyper Text Markup Language
 *[W3C]: World Wide Web Consortium
@@ -606,20 +692,17 @@ The HTML specification is maintained by the W3C.
 auto_append = ["includes/abbreviations.md"]
 ```
 
-### Improved tooltips feature
-
-```toml
-[project.theme]
-features = ["content.tooltips"]
-```
-
 ---
 
 ## Buttons
 
-Requires: `attr_list`.
+Requires:
+
+```toml
+[project.markdown_extensions.attr_list]
+```
 
 ```markdown
-[Subscribe](#){ .md-button }
-[Subscribe](#){ .md-button .md-button--primary }
+[Button](#){ .md-button }
+[Primary Button](#){ .md-button .md-button--primary }
 [Send :fontawesome-solid-paper-plane:](#){ .md-button }
