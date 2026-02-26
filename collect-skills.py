@@ -182,6 +182,48 @@ def _extract_skill_from_response(text: str) -> str:
     return s
 
 
+# ── multi-file skill bundle support ───────────────────────────────────────────
+
+# When combined source docs exceed this size, use the 1M-token context model
+# and allow multi-file output (SKILL.md + sub-files).
+_LARGE_CONTENT_THRESHOLD = 50_000  # characters
+
+# Delimiter that separates files in a multi-file LLM response
+_BUNDLE_SEP = "<<<FILE:"
+
+# Bedrock model for large context
+_LARGE_BEDROCK_MODEL = "us.anthropic.claude-sonnet-4-6"
+_LARGE_SDK_MODEL     = "claude-sonnet-4-6"  # direct API version
+
+
+def _parse_skill_bundle(response: str) -> dict[str, str]:
+    """
+    Parse a potentially multi-file LLM response into {filename: content}.
+
+    Expects sections delimited by:
+        <<<FILE: SKILL.md>>>
+        ...content...
+        <<<FILE: setup.md>>>
+        ...content...
+
+    Falls back to {"SKILL.md": extracted_content} for single-file responses.
+    """
+    if _BUNDLE_SEP not in response:
+        return {"SKILL.md": _extract_skill_from_response(response)}
+
+    files: dict[str, str] = {}
+    # re.split keeps the captured groups when there's a group in the pattern
+    parts = re.split(r"<<<FILE:\s*([^>]+)>>>", response)
+    # parts[0] = text before first marker (ignore)
+    # parts[1] = filename, parts[2] = content, parts[3] = filename, ...
+    for i in range(1, len(parts) - 1, 2):
+        filename = parts[i].strip()
+        content  = _strip_code_fence(parts[i + 1])
+        if content:
+            files[filename] = content
+    return files if files else {"SKILL.md": _extract_skill_from_response(response)}
+
+
 def is_valid_skill(content: str) -> bool:
     """Quick validity check: needs --- delimiters, name, and description."""
     meta, _ = parse_frontmatter(content)
@@ -383,6 +425,47 @@ def _source_tag(item: Path) -> str:
 _SKIP_DIRS = {"__pycache__", "node_modules", ".venv", "venv", ".tox", "dist", "build"}
 
 
+def _install_bundle(
+    bundle: dict[str, str],
+    folder_name: str,
+    src_label: str,
+    dry_run: bool,
+    verbose: bool,
+) -> bool:
+    """
+    Write all files in a skill bundle to .claude/skills/<skill_dir>/.
+    SKILL.md is validated; sub-files are written unconditionally.
+    Returns True if SKILL.md was successfully installed.
+    """
+    skill_md = bundle.get("SKILL.md", "")
+    reason = _skill_rejection_reason(skill_md)
+    if reason:
+        print(f"    WARNING: generated SKILL.md invalid: {reason}")
+        # Show first 120 chars of what we got
+        print(f"    Content preview: {skill_md[:120]!r}")
+        return False
+
+    meta, _ = parse_frontmatter(skill_md)
+    sdir = skill_dirname(meta, folder_name)
+
+    # Write SKILL.md (always overwrite — we just generated it from changed sources)
+    st = install_skill(skill_md, sdir, dry_run, verbose, force=True)
+    n_sub = len(bundle) - 1
+    print(f"  [local+AI] {folder_name}/{src_label} -> {sdir}/SKILL.md  [{st}]"
+          + (f"  (+{n_sub} sub-files)" if n_sub else ""))
+
+    # Write sub-files
+    for filename, content in bundle.items():
+        if filename == "SKILL.md":
+            continue
+        st_sub = install_skill(content, sdir, dry_run, verbose, force=True,
+                               filename=filename)
+        if verbose or st_sub not in ("unchanged",):
+            print(f"    [local+AI] {sdir}/{filename}  [{st_sub}]")
+
+    return True
+
+
 def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> None:
     subfolders = [
         i for i in sorted(REPO_ROOT.iterdir())
@@ -464,30 +547,22 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
                 if pdf.name.endswith(":Zone.Identifier"):
                     continue
                 if claude_bin:
-                    skill_content = _generate_skill_via_claude(None, item.name, pdf_path=pdf)
+                    bundle = _generate_skill_via_claude(None, item.name, pdf_path=pdf)
                 else:
                     text = _extract_pdf_text(pdf)
                     if not text:
                         continue
-                    skill_content = _generate_skill_via_claude(text, item.name)
-                if skill_content:
-                    reason = _skill_rejection_reason(skill_content)
-                    if reason:
-                        print(f"    WARNING: generated skill invalid: {reason}")
-                    else:
-                        meta, _ = parse_frontmatter(skill_content)
-                        sdir = skill_dirname(meta, item.name)
-                        # Always overwrite when we just generated from changed sources
-                        st = install_skill(skill_content, sdir, dry_run, verbose, force=True)
-                        print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md  [{st}]")
-                        installed = True
+                    bundle = _generate_skill_via_claude(text, item.name)
+                if bundle:
+                    installed = _install_bundle(
+                        bundle, item.name, f"{pdf.name}", dry_run, verbose)
+                    if installed:
                         break
 
         # 1-d  Any markdown / text as AI source (README, .pdf.md, etc.)
-        #      Concatenate all markdown in the tree and make ONE generation call.
+        #      Concatenate ALL markdown in the tree into ONE generation call.
         if not installed and generate:
             parts: list[str] = []
-            src_name = ""
             for md in sorted(item.rglob("*.md")):
                 if md.name.endswith(":Zone.Identifier"):
                     continue
@@ -495,22 +570,13 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
                 if len(text) < 100:
                     continue
                 parts.append(f"## File: {md.relative_to(item)}\n\n{text}")
-                if not src_name:
-                    src_name = md.name
             combined = "\n\n---\n\n".join(parts)
             if len(combined) >= 200:
-                skill_content = _generate_skill_via_claude(combined, item.name)
-                if skill_content:
-                    reason = _skill_rejection_reason(skill_content)
-                    if reason:
-                        print(f"    WARNING: generated skill invalid: {reason}")
-                    else:
-                        meta, _ = parse_frontmatter(skill_content)
-                        sdir = skill_dirname(meta, item.name)
-                        # Always overwrite when we just generated from changed sources
-                        st = install_skill(skill_content, sdir, dry_run, verbose, force=True)
-                        print(f"  [local+AI] {item.name}/{src_name}+{len(parts)-1} more -> {sdir}/SKILL.md  [{st}]")
-                        installed = True
+                bundle = _generate_skill_via_claude(combined, item.name)
+                if bundle:
+                    installed = _install_bundle(
+                        bundle, item.name,
+                        f"{len(parts)} markdown files", dry_run, verbose)
 
         if not installed and verbose:
             print(f"    (nothing usable found in {item.name}/)")
@@ -556,7 +622,7 @@ def _generate_skill_via_claude(
     doc_text: Optional[str],
     folder_name: str,
     pdf_path: Optional[Path] = None,
-) -> Optional[str]:
+) -> Optional[dict[str, str]]:
     """
     Generate a skill file from documentation.
 
@@ -571,7 +637,50 @@ def _generate_skill_via_claude(
     """
     skill_name = sanitize_name(folder_name)
 
-    instructions = f"""IMPORTANT: Print the skill file content to stdout ONLY.
+    large = doc_text is not None and len(doc_text) >= _LARGE_CONTENT_THRESHOLD
+
+    if large:
+        instructions = f"""IMPORTANT: Print ONLY the raw file output below — no preamble, no commentary.
+Do NOT use the Write, Edit, or Bash tools. You may use Read to access source docs.
+
+OUTPUT FORMAT — use this exact multi-file delimiter for each file:
+<<<FILE: SKILL.md>>>
+---
+name: {skill_name}
+description: <verbose trigger phrase, see DESCRIPTION RULES>
+---
+
+## Overview
+One-paragraph summary of what {skill_name} is.
+
+## Topics
+- [Setup](setup.md) — installation and configuration
+- [Authoring](authoring.md) — writing content, extensions
+... (list every sub-file you create)
+
+<<<FILE: setup.md>>>
+# Setup
+...
+
+<<<FILE: authoring.md>>>
+# Authoring
+...
+
+RULES:
+- SKILL.md is always required and must contain the frontmatter block
+- Sub-files must NOT have frontmatter (no --- delimiters)
+- Sub-files are stored alongside SKILL.md; links are relative (no path prefix)
+- Each file should cover ONE cohesive topic area from the source docs
+- Keep each file under 5 000 words; create as many sub-files as needed
+- NO XML angle brackets anywhere (outside code fences)
+- Every code block must have a language tag
+
+DESCRIPTION RULES for SKILL.md:
+- Start with "Use this skill whenever the user wants to..."
+- Exhaustively list every task, concept, command, file type the skill covers
+- Aim for 3-6 sentences / 400-900 characters"""
+    else:
+        instructions = f"""IMPORTANT: Print the skill file content to stdout ONLY.
 Do NOT write or create any files. Do NOT use the Write, Edit, or Bash tools.
 You may use the Read tool to read source documents, but your final output must be
 ONLY the raw skill file content printed to stdout.
@@ -629,7 +738,7 @@ BODY RULES:
                 capture_output=True, text=True, timeout=120,
             )
             if result.returncode == 0 and result.stdout.strip():
-                return _extract_skill_from_response(result.stdout)
+                return _parse_skill_bundle(result.stdout)
             print(f"    WARNING: claude CLI non-zero exit: {result.stderr[:200]}")
         except Exception as exc:
             print(f"    WARNING: claude CLI error: {exc}")
@@ -657,11 +766,13 @@ BODY RULES:
         print(f"    Reading {GUIDE_PDF.name} as rules context (text extraction) …")
     guide_section = f"Skill-building guide (read and follow these rules):\n\n{guide}\n\n" if guide else ""
     backend = "Bedrock" if use_bedrock else "Anthropic SDK"
-    print(f"    Invoking {backend}: {'guide + ' if guide else ''}inline doc → generate {skill_name}/SKILL.md")
+    context_tag = "1M-context " if large else ""
+    multi_tag   = "multi-file " if large else ""
+    print(f"    Invoking {backend} ({context_tag}{multi_tag}→ {skill_name}/SKILL.md)")
     full_prompt = (
         f"{guide_section}"
-        f"Create a Claude Code skill file named '{skill_name}' from "
-        f"this documentation:\n\n{doc_text[:14000]}\n\n{instructions}"
+        f"Create a Claude Code skill named '{skill_name}' from "
+        f"this documentation:\n\n{doc_text}\n\n{instructions}"
     )
     try:
         if use_bedrock:
@@ -670,17 +781,34 @@ BODY RULES:
             client = anthropic.AnthropicBedrock(
                 aws_region=region, aws_profile=profile,
             )
-            model = os.environ.get("BEDROCK_MODEL",
-                                   "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+            if large:
+                model = os.environ.get("BEDROCK_LARGE_MODEL", _LARGE_BEDROCK_MODEL)
+                max_tokens = 65536
+            else:
+                model = os.environ.get("BEDROCK_MODEL",
+                                       "us.anthropic.claude-haiku-4-5-20251001-v1:0")
+                max_tokens = 4096
         else:
             client = anthropic.Anthropic(api_key=api_key)
-            model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
-        msg = client.messages.create(
+            if large:
+                model     = os.environ.get("SDK_LARGE_MODEL", _LARGE_SDK_MODEL)
+                max_tokens = 65536
+            else:
+                model     = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
+                max_tokens = 4096
+        params = dict(
             model=model,
-            max_tokens=4096,
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": full_prompt}],
         )
-        return _extract_skill_from_response(msg.content[0].text)
+        if large:
+            # Large requests can exceed 10 min; streaming is required
+            with client.messages.stream(**params) as stream:
+                raw = stream.get_final_text()
+        else:
+            msg = client.messages.create(**params)
+            raw = msg.content[0].text
+        return _parse_skill_bundle(raw)
     except Exception as exc:
         print(f"    WARNING: {backend} error: {exc}")
         return None
