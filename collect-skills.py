@@ -39,6 +39,7 @@ GitHub rate limits:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -330,6 +331,39 @@ def _migrate_flat_skills(dry_run: bool, verbose: bool) -> None:
 
 # ── Source 1: local subfolders ─────────────────────────────────────────────────
 
+_SOURCE_EXTS = {".md", ".pdf", ".txt", ".rst"}
+
+
+def _tree_md5(folder: Path) -> str:
+    """Compute a single MD5 over all source files (pdf, md, txt, rst) in a folder tree."""
+    h = hashlib.md5()
+    for f in sorted(folder.rglob("*")):
+        if not f.is_file():
+            continue
+        if f.suffix.lower() not in _SOURCE_EXTS:
+            continue
+        if ":Zone.Identifier" in f.name or ":sec.endpointdlp" in f.name:
+            continue
+        # Hash the relative path + file contents for determinism
+        h.update(str(f.relative_to(folder)).encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
+def _tree_changed(folder: Path, verbose: bool) -> bool:
+    """Return True if source files changed since last run (compares tree.md5sum)."""
+    md5_file = folder / "tree.md5sum"
+    current = _tree_md5(folder)
+    if md5_file.exists():
+        stored = md5_file.read_text(encoding="utf-8").strip()
+        if stored == current:
+            if verbose:
+                print(f"    {folder.name}/tree.md5sum unchanged")
+            return False
+    md5_file.write_text(current + "\n", encoding="utf-8")
+    return True
+
+
 def _source_tag(item: Path) -> str:
     """Describe the best available source material in a subfolder."""
     if (item / "SKILL.md").exists() or (item / "skill.md").exists():
@@ -365,7 +399,15 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
         )
         tag = _source_tag(item)
         status_str = "skill on disk" if skill_exists else "skill missing"
-        print(f"  {item.name}/  →  {skill_name}/SKILL.md  [{tag}]  [{status_str}]")
+        # Peek at stored checksum to show change status
+        md5_file = item / "tree.md5sum"
+        if md5_file.exists():
+            stored = md5_file.read_text(encoding="utf-8").strip()
+            current = _tree_md5(item)
+            src_status = "sources changed" if stored != current else "sources unchanged"
+        else:
+            src_status = "no checksum yet"
+        print(f"  {item.name}/  →  {skill_name}/SKILL.md  [{tag}]  [{status_str}]  [{src_status}]")
 
     # ── now process each subfolder ──
     for item in subfolders:
@@ -378,6 +420,9 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
             for d in [SKILLS_DIR / skill_name]
             + list(SKILLS_DIR.glob(f"{skill_name}*"))
         )
+
+        # Compute tree checksum to detect source changes
+        changed = _tree_changed(item, verbose) if not dry_run else True
 
         # 1-a  explicit SKILL.md  (official format used by claude.ai)
         for candidate in (item / "SKILL.md", item / "skill.md"):
@@ -405,7 +450,10 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     installed = True
                     break
 
-        # Skip AI generation if skill already exists (use --overwrite to force)
+        # Skip AI generation if skill exists and source tree is unchanged
+        if not installed and skill_on_disk and not changed and not overwrite:
+            print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [unchanged sources, skip generation]")
+            continue
         if not installed and skill_on_disk and not overwrite:
             print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [skill on disk, skip generation]")
             continue

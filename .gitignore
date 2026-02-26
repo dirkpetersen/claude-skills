@@ -1,2 +1,5 @@
 *:Zone.Identifier
 *:sec.endpointdlp
+tree.md5sum
+__pycache__/
+.env
