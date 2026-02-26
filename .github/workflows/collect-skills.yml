@@ -21,7 +21,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install PDF extraction library
-        run: pip install pymupdf4llm 'anthropic[bedrock]'
+        run: pip install pymupdf4llm pymupdf-layout 'anthropic[bedrock]'
 
       - name: Run collect-skills.py
         env:

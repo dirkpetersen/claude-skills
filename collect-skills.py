@@ -580,11 +580,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
 def _extract_pdf_text(pdf_path: Path) -> Optional[str]:
     """Try pymupdf4llm → pypdf → pdftotext CLI."""
     try:
-        import pymupdf4llm  # pip install pymupdf4llm
-        with open(os.devnull, "w") as _devnull:
-            import contextlib
-            with contextlib.redirect_stderr(_devnull):
-                return pymupdf4llm.to_markdown(str(pdf_path))
+        import pymupdf4llm  # pip install pymupdf4llm pymupdf-layout
+        return pymupdf4llm.to_markdown(str(pdf_path))
     except ImportError:
         pass
     except Exception as exc:
