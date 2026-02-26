@@ -27,7 +27,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}   # raises GitHub API rate limit 60 → 5000/h
-        run: python collect-skills.py --overwrite
+        run: python collect-skills.py --force --no-agent
 
       - name: Commit and push updated skills
         run: |

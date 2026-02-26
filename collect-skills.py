@@ -1070,7 +1070,18 @@ def main(argv: Optional[list[str]] = None) -> int:
         "-f", "--force", action="store_true",
         help="Force regeneration: overwrite existing skills and ignore checksums",
     )
+    parser.add_argument(
+        "--no-agent", action="store_true",
+        help=(
+            "Skip the claude CLI and use the SDK/Bedrock fallback directly. "
+            "Equivalent to running from inside a Claude Code session."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    # --no-agent: pretend we are inside a Claude Code session so CLI is skipped
+    if args.no_agent:
+        os.environ["CLAUDECODE"] = "1"
 
     # flag omitted → default None → run all three
     sources = set(args.source) if args.source else {"local", "github", "urls"}
