@@ -463,6 +463,17 @@ def _install_bundle(
         if verbose or st_sub not in ("unchanged",):
             print(f"    [local+AI] {sdir}/{filename}  [{st_sub}]")
 
+    # Remove any .md files in the skill dir that are not in the new bundle
+    skill_dir_path = SKILLS_DIR / sdir
+    new_files = set(bundle.keys())
+    for old_file in sorted(skill_dir_path.glob("*.md")):
+        if old_file.name not in new_files:
+            if dry_run:
+                print(f"    [dry-run] would remove orphan {sdir}/{old_file.name}")
+            else:
+                old_file.unlink()
+                print(f"    [local+AI] removed orphan {sdir}/{old_file.name}")
+
     return True
 
 

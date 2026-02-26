@@ -1,40 +1,26 @@
 # Theme
 
-## Theme Variant
-
-Zensical ships two variants: `modern` (default) and `classic` (matches Material for MkDocs).
-
-```toml
-[project.theme]
-variant = "classic"
-```
-
 ## Colors
 
-### Color Scheme
+### Color scheme
 
 ```toml
 [project.theme.palette]
-scheme = "default"   # or "slate" for dark mode
+scheme = "default"   # light mode
+# scheme = "slate"   # dark mode
 ```
 
-### Primary Color
+### Primary and accent colors
 
 ```toml
 [project.theme]
 palette.primary = "indigo"
-```
-
-Available: red, pink, purple, deep-purple, indigo, blue, light-blue, cyan, teal, green, light-green, lime, yellow, amber, orange, deep-orange, brown, grey, blue-grey, black, white.
-
-### Accent Color
-
-```toml
-[project.theme]
 palette.accent = "indigo"
 ```
 
-### Color Palette Toggle (light/dark)
+Available named colors: `red`, `pink`, `purple`, `deep-purple`, `indigo`, `blue`, `light-blue`, `cyan`, `teal`, `green`, `light-green`, `lime`, `yellow`, `amber`, `orange`, `deep-orange`, `brown`, `grey`, `blue-grey`, `black`, `white`.
+
+### Color palette toggle (light/dark)
 
 ```toml
 [[project.theme.palette]]
@@ -48,14 +34,9 @@ toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
 ```
 
-### System Preference / Auto Mode
+### System preference
 
 ```toml
-[[project.theme.palette]]
-media = "(prefers-color-scheme)"
-toggle.icon = "lucide/sun-moon"
-toggle.name = "Switch to light mode"
-
 [[project.theme.palette]]
 media = "(prefers-color-scheme: light)"
 scheme = "default"
@@ -66,17 +47,12 @@ toggle.name = "Switch to dark mode"
 media = "(prefers-color-scheme: dark)"
 scheme = "slate"
 toggle.icon = "lucide/moon"
-toggle.name = "Switch to system preference"
+toggle.name = "Switch to light mode"
 ```
 
-### Custom Colors
+### Custom colors
 
-Set primary to `"custom"` and override CSS variables in an extra stylesheet:
-
-```toml
-[project.theme.palette]
-primary = "custom"
-```
+Set `primary = "custom"` then add CSS:
 
 ```css
 :root > * {
@@ -86,46 +62,24 @@ primary = "custom"
 }
 ```
 
-### Custom Color Schemes
-
-```css
-[data-md-color-scheme="youtube"] {
-  --md-primary-fg-color:        #EE0F0F;
-  --md-primary-fg-color--light: #ECB7B7;
-  --md-primary-fg-color--dark:  #90030C;
-}
-```
-
-```toml
-[project]
-theme.palette.scheme = "youtube"
-extra_css = ["stylesheets/extra.css"]
-```
+---
 
 ## Fonts
-
-### Regular Font
 
 ```toml
 [project.theme]
 font.text = "Inter"
-```
-
-### Monospaced Font
-
-```toml
-[project.theme]
 font.code = "JetBrains Mono"
 ```
 
-### Disable Google Fonts
+Disable Google Fonts:
 
 ```toml
 [project.theme]
 font = false
 ```
 
-### Custom Fonts via CSS
+Custom font via extra CSS:
 
 ```css
 @font-face {
@@ -134,33 +88,37 @@ font = false
 }
 :root {
   --md-text-font: "MyFont";
+  --md-code-font: "MyFont";
 }
 ```
 
-## Logo and Icons
+---
 
-### Logo from Image File
+## Logo and Icons
 
 ```toml
 [project.theme]
 logo = "images/logo.png"
-```
 
-### Logo from Bundled Icon
-
-```toml
 [project.theme.icon]
 logo = "lucide/smile"
 ```
 
-### Favicon
+Custom homepage for logo link:
+
+```toml
+[project.extra]
+homepage = "https://example.com"
+```
+
+Favicon:
 
 ```toml
 [project.theme]
 favicon = "images/favicon.png"
 ```
 
-### Site Icons
+Site icons (customizable):
 
 ```toml
 [project.theme.icon]
@@ -168,303 +126,159 @@ previous = "fontawesome/solid/angle-left"
 next = "fontawesome/solid/angle-right"
 ```
 
-Full list of customizable icon names: `logo`, `menu`, `alternate`, `search`, `share`, `close`, `top`, `edit`, `view`, `repo`, `admonition`, `tag`, `previous`, `next`.
+All customizable icon names: `logo`, `menu`, `alternate`, `search`, `share`, `close`, `top`, `edit`, `view`, `repo`, `admonition`, `tag`, `previous`, `next`.
 
-### Additional Icons
-
-Place SVG files in `overrides/.icons/<set>/*.svg`, then configure:
-
-```toml
-[project.theme]
-custom_dir = "overrides"
-
-[project.markdown_extensions.pymdownx.emoji]
-emoji_index = "zensical.extensions.emoji.twemoji"
-emoji_generator = "zensical.extensions.emoji.to_svg"
-options.custom_icons = ["overrides/.icons"]
-```
-
-Use in Markdown: `:bootstrap-envelope-paper:`. Use in config: `bootstrap/envelope-paper`.
+---
 
 ## Navigation
 
-### Explicit Navigation
+### Feature flags
+
+```toml
+[project.theme]
+features = [
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.instant.progress",
+  "navigation.tracking",
+  "navigation.tabs",
+  "navigation.tabs.sticky",
+  "navigation.sections",
+  "navigation.expand",
+  "navigation.path",
+  "navigation.prune",
+  "navigation.indexes",
+  "navigation.top",
+  "navigation.footer",
+  "toc.follow",
+  "toc.integrate",
+  "header.autohide",
+  "announce.dismiss",
+  "search.highlight",
+  "content.code.copy",
+  "content.code.select",
+  "content.code.annotate",
+  "content.tabs.link",
+  "content.tooltips",
+  "content.footnote.tooltips",
+  "content.action.edit",
+  "content.action.view"
+]
+```
+
+### Instant navigation
+
+Intercepts internal link clicks and loads pages via XHR (SPA behavior). Requires `site_url` to be set.
+
+### Instant previews
+
+Enable for specific pages/sections:
+
+```toml
+[[project.markdown_extensions.zensical.extensions.preview.configurations]]
+targets.include = ["customization.md", "setup/extensions/*"]
+```
+
+Or add `data-preview` attribute to individual links in Markdown:
+
+```markdown
+[Link text](other-page.md#section){ data-preview }
+```
+
+### Section index pages
+
+Name a file `index.md` inside a section folder and list it first in nav:
 
 ```toml
 [project]
 nav = [
-  "index.md",
-  {"About" = ["about/index.md", "about/team.md"]}
+  {"Section" = [
+    "section/index.md",
+    {"Page 1" = "section/page-1.md"}
+  ]}
 ]
 ```
 
-External links are any value that can't resolve to a Markdown file.
-
-### Instant Navigation
-
-```toml
-[project.theme]
-features = ["navigation.instant"]
-```
-
-Requires `site_url`. Enables SPA-style navigation without full page reload.
-
-#### Instant Prefetching
-
-```toml
-[project.theme]
-features = ["navigation.instant", "navigation.instant.prefetch"]
-```
-
-#### Progress Indicator
-
-```toml
-[project.theme]
-features = ["navigation.instant", "navigation.instant.progress"]
-```
-
-### Instant Previews
-
-Enable on a link with the `data-preview` attribute:
-
-```markdown
-[Attribute Lists](extensions/python-markdown.md#attribute-lists){ data-preview }
-```
-
-Automatic previews via extension:
-
-```toml
-[project.markdown_extensions.zensical.extensions.preview]
-configurations = [
-  { targets.include = ["customization.md", "setup/extensions/*"] }
-]
-```
-
-### Anchor Tracking
-
-```toml
-[project.theme]
-features = ["navigation.tracking"]
-```
-
-### Navigation Tabs
-
-```toml
-[project.theme]
-features = ["navigation.tabs"]
-```
-
-Sticky tabs:
-
-```toml
-[project.theme]
-features = ["navigation.tabs", "navigation.tabs.sticky"]
-```
-
-### Navigation Sections
-
-```toml
-[project.theme]
-features = ["navigation.sections"]
-```
-
-### Navigation Expansion
-
-```toml
-[project.theme]
-features = ["navigation.expand"]
-```
-
-### Navigation Path (Breadcrumbs)
-
-```toml
-[project.theme]
-features = ["navigation.path"]
-```
-
-### Navigation Pruning
-
-```toml
-[project.theme]
-features = ["navigation.prune"]
-```
-
-Reduces built site size by ~33%. Not compatible with `navigation.expand`.
-
-### Section Index Pages
-
-```toml
-[project.theme]
-features = ["navigation.indexes"]
-```
-
-Add `section/index.md` as the first item in a nav section.
-
-### Table of Contents — Anchor Following
-
-```toml
-[project.theme]
-features = ["toc.follow"]
-```
-
-### Table of Contents — Navigation Integration
-
-```toml
-[project.theme]
-features = ["toc.integrate"]
-```
-
-### Back-to-Top Button
-
-```toml
-[project.theme]
-features = ["navigation.top"]
-```
-
-### Hide Sidebars per Page
-
-```yaml
 ---
-hide:
-  - navigation
-  - toc
----
-```
 
 ## Header
 
-### Auto-Hide Header
-
 ```toml
 [project.theme]
-features = ["header.autohide"]
+features = ["header.autohide", "announce.dismiss"]
 ```
 
-### Announcement Bar
-
-Override the `announce` block in a template:
+Announcement bar — override the `announce` block in a template:
 
 ```html
 {% extends "base.html" %}
 {% block announce %}
-  <!-- announcement HTML here -->
+  Important announcement here
 {% endblock %}
 ```
 
-#### Dismissible Announcement
-
-```toml
-[project.theme]
-features = ["announce.dismiss"]
-```
+---
 
 ## Footer
-
-### Footer Navigation Links
 
 ```toml
 [project.theme]
 features = ["navigation.footer"]
-```
 
-### Social Links
+[project]
+copyright = "Copyright &copy; 2025 Example"
 
-```toml
+[project.extra]
+generator = false   # hide "Made with Zensical" notice
+
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/zensical/zensical"
-name = "Zensical on GitHub"
+link = "https://github.com/example"
+name = "GitHub"
 ```
 
-### Copyright Notice
+---
+
+## Search
+
+Built-in, enabled by default, works offline. English only currently.
 
 ```toml
-[project]
-copyright = "Copyright &copy; 2025 Zensical LLC"
+[project.theme]
+features = ["search.highlight"]
 ```
 
-### Remove Generator Notice
-
-```toml
-[project.extra]
-generator = false
-```
-
-### Hide Footer Nav per Page
+Exclude a page from search (front matter):
 
 ```yaml
 ---
-hide:
-  - footer
+search:
+  exclude: true
 ---
 ```
 
-## Language
+Exclude a section:
 
-### Site Language
-
-```toml
-[project.theme]
-language = "en"
+```markdown
+## Section { data-search-exclude }
 ```
 
-### Language Selector
-
-```toml
-[project.extra]
-alternate = [
-  { name = "English", link = "/en/", lang = "en" },
-  { name = "Deutsch", link = "/de/", lang = "de" }
-]
-```
-
-### Directionality
-
-```toml
-[project.theme]
-direction = "ltr"   # or "rtl"
-```
-
-## Repository
-
-### Repository URL
-
-```toml
-[project]
-repo_url = "https://github.com/zensical/zensical"
-```
-
-### Repository Name
-
-```toml
-[project]
-repo_name = "zensical/zensical"
-```
-
-### Repository Icon
-
-```toml
-[project.theme.icon]
-repo = "fontawesome/brands/github"
-```
-
-### Content Actions (Edit/View)
-
-```toml
-[project.theme]
-features = ["content.action.edit", "content.action.view"]
-```
-
-### edit_uri
-
-```toml
-[project]
-edit_uri = "edit/main/docs/"
-```
+---
 
 ## Tags
 
-Tags are supported by default. Add to page front matter:
+```toml
+[project.extra.tags]
+HTML5 = "html"
+JavaScript = "js"
+
+[project.theme.icon.tag]
+default = "lucide/hash"
+html = "fontawesome/brands/html5"
+js = "fontawesome/brands/js"
+```
+
+Add tags to a page (front matter):
 
 ```yaml
 ---
@@ -474,21 +288,88 @@ tags:
 ---
 ```
 
-### Tag Icons
+---
+
+## Analytics
+
+### Google Analytics 4
 
 ```toml
-[project.extra.tags]
-HTML5 = "html"
-
-[project.theme.icon.tag]
-default = "lucide/hash"
-html = "fontawesome/brands/html5"
+[project.extra.analytics]
+provider = "google"
+property = "G-XXXXXXXXXX"
 ```
 
-### Hide Tags per Page
+### Feedback widget
 
-```yaml
+```toml
+[project.extra.analytics.feedback]
+title = "Was this page helpful?"
+
+[[project.extra.analytics.feedback.ratings]]
+icon = "material/emoticon-happy-outline"
+name = "This page was helpful"
+data = 1
+note = "Thanks for your feedback!"
+
+[[project.extra.analytics.feedback.ratings]]
+icon = "material/emoticon-sad-outline"
+name = "This page could be improved"
+data = 0
+note = "Thanks for your feedback!"
+```
+
 ---
-hide:
-  - tags
+
+## Repository / Content Actions
+
+```toml
+[project]
+repo_url = "https://github.com/example/repo"
+repo_name = "example/repo"
+edit_uri = "edit/main/docs/"
+
+[project.theme]
+features = ["content.action.edit", "content.action.view"]
+
+[project.theme.icon]
+repo = "fontawesome/brands/github"
+edit = "material/pencil"
+view = "material/eye"
+```
+
 ---
+
+## Cookie Consent
+
+```toml
+[project.extra.consent]
+title = "Cookie consent"
+description = "We use cookies to recognize your preferences."
+actions = ["accept", "manage"]
+```
+
+Add a link to change cookie settings in the copyright notice:
+
+```toml
+[project]
+copyright = """
+  Copyright &copy; 2025 –
+  <a href="#__consent">Change cookie settings</a>
+"""
+```
+
+---
+
+## Language
+
+```toml
+[project.theme]
+language = "en"
+direction = "ltr"
+
+[project.extra]
+alternate = [
+  { name = "English", link = "/en/", lang = "en" },
+  { name = "Deutsch", link = "/de/", lang = "de" }
+]

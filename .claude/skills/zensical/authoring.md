@@ -2,37 +2,44 @@
 
 ## Markdown Basics
 
-Zensical uses Python Markdown for compatibility with Material for MkDocs. All standard Markdown is supported. Always use relative links to `.md` files rather than HTML URLs.
+Zensical uses Python Markdown (compatible with Material for MkDocs). Use relative links to other Markdown files — Zensical translates them to correct HTML links:
 
-Page title priority (highest to lowest):
-1. Title in `nav` config
-2. Front matter `title`
-3. First `# h1` in content
-4. Filename
+```markdown
+[See setup guide](../setup/basics.md)
+```
+
+Page title priority: nav config → front matter title → first `#` heading → filename.
+
+---
 
 ## Front Matter
+
+Front matter is YAML at the top of a Markdown file between `---` delimiters.
 
 ```yaml
 ---
 title: My Page Title
-description: A short description for SEO.
+description: A short description for the HTML meta tag.
 icon: lucide/braces
 status: new
-template: my_homepage.html
+template: my_template.html
+tags:
+  - HTML5
+  - JavaScript
 hide:
   - navigation
   - toc
   - footer
-  - feedback
-  - tags
   - path
-tags:
-  - Setup
-  - Authoring
+  - tags
+  - feedback
+search:
+  exclude: true
+robots: noindex, nofollow
 ---
 ```
 
-### Page Status
+### Page status
 
 Define statuses in config:
 
@@ -42,96 +49,52 @@ new = "Recently added"
 deprecated = "Deprecated"
 ```
 
-Then use in front matter: `status: new`.
+Built-in identifiers: `new`, `deprecated`.
 
-Built-in statuses: `new`, `deprecated`.
-
-### Search Exclusion
-
-```yaml
 ---
-search:
-  exclude: true
----
-```
-
-Exclude a section:
-
-```markdown
-## Section { data-search-exclude }
-```
 
 ## Admonitions
 
-Requires `admonition` extension (enabled by default).
+Requires: `admonition`, `pymdownx.details`, `pymdownx.superfences` extensions.
 
 ```markdown
 !!! note
-
     Content here, indented 4 spaces.
-```
 
-### Custom Title
+!!! note "Custom title"
+    Content with a custom title.
 
-```markdown
-!!! note "My custom title"
-
-    Content.
-```
-
-### No Title
-
-```markdown
 !!! note ""
-
-    Content without title.
+    Admonition with no title.
 ```
 
-### Nested Admonitions
-
-```markdown
-!!! note "Outer"
-
-    Outer content.
-
-    !!! note "Inner"
-
-        Inner content.
-```
-
-### Collapsible Blocks
-
-Requires `pymdownx.details`.
+### Collapsible
 
 ```markdown
 ??? note
-
     Collapsed by default.
 
 ???+ note
-
     Expanded by default.
 ```
 
-### Inline Blocks
+### Inline
 
 ```markdown
 !!! info inline end "Title"
-
     Floats to the right.
 
 !!! info inline "Title"
-
     Floats to the left.
 ```
 
-Inline admonitions must be declared before the content block they sit beside.
+Inline admonitions must be declared before the content block they float beside.
 
-### Supported Types
+### Supported types
 
 `note`, `abstract`, `info`, `tip`, `success`, `question`, `warning`, `failure`, `danger`, `bug`, `example`, `quote`
 
-### Custom Admonition Icons
+### Custom admonition icons
 
 ```toml
 [project.theme.icon.admonition]
@@ -139,57 +102,64 @@ note = "octicons/tag-16"
 warning = "octicons/alert-16"
 ```
 
+---
+
 ## Code Blocks
 
-### Basic Syntax
+Requires: `pymdownx.highlight`, `pymdownx.inlinehilite`, `pymdownx.snippets`, `pymdownx.superfences`.
 
 ````markdown
-``` py
+``` python
 import tensorflow as tf
 ```
 ````
 
-### With Title
+### With title
 
 ````markdown
-``` py title="bubble_sort.py"
+``` python title="bubble_sort.py"
 def bubble_sort(items):
     pass
 ```
 ````
 
-### With Line Numbers
+### Line numbers
 
 ````markdown
-``` py linenums="1"
-def bubble_sort(items):
+``` python linenums="1"
+def example():
     pass
 ```
 ````
 
-### Highlight Specific Lines
+### Highlight lines
 
 ````markdown
-``` py hl_lines="2 3"
-def bubble_sort(items):
-    for i in range(len(items)):
-        pass
+``` python hl_lines="2 3"
+def example():
+    line_two = True
+    line_three = True
 ```
 ````
 
-Line ranges: `hl_lines="3-5"`.
+Line ranges:
 
-### Code Annotations
+````markdown
+``` python hl_lines="2-4"
+```
+````
+
+### Code annotations
 
 ````markdown
 ``` toml
 features = ["content.code.annotate"] # (1)!
 ```
 
-1.  I'm a code annotation! I can contain `code`, __formatted text__, images.
+1.  I'm a code annotation! I can contain `code`, **text**, images.
 ````
 
-Strip comment characters with `!` after `)`:
+Strip comment characters with `!`:
 
 ````markdown
 ``` yaml
@@ -199,13 +169,13 @@ Strip comment characters with `!` after `)`:
 1.  Look ma, less line noise!
 ````
 
-### Inline Code Highlighting
+### Inline code highlighting
 
 ```markdown
-The `#!python range()` function generates sequences.
+The `#!python range()` function generates a sequence.
 ```
 
-### Embed External Files
+### Embed external files
 
 ````markdown
 ``` title=".browserslistrc"
@@ -213,90 +183,92 @@ The `#!python range()` function generates sequences.
 ```
 ````
 
-### Copy Button
+### Copy/select buttons
 
 ```toml
 [project.theme]
-features = ["content.code.copy"]
+features = ["content.code.copy", "content.code.select"]
 ```
 
-Per-block: ` ``` { .yaml .copy } ` or ` ``` { .yaml .no-copy } `.
+Per-block override using attribute lists:
 
-### Selection Button
-
-```toml
-[project.theme]
-features = ["content.code.select"]
+````markdown
+``` { .yaml .copy }
+key: value
 ```
+````
 
-### Custom Annotation Selectors
-
-```toml
-[project.extra.annotate]
-json = [".s2"]
-```
+---
 
 ## Content Tabs
 
-Requires `pymdownx.superfences` and `pymdownx.tabbed` with `alternate_style = true`.
+Requires: `pymdownx.superfences`, `pymdownx.tabbed` with `alternate_style = true`.
 
 ```markdown
-=== "C"
+=== "Python"
 
-    ``` c
-    #include <stdio.h>
-    int main(void) { return 0; }
+    ``` python
+    print("Hello")
     ```
 
-=== "C++"
+=== "JavaScript"
 
-    ``` c++
-    #include <iostream>
-    int main(void) { return 0; }
+    ``` javascript
+    console.log("Hello")
     ```
 ```
 
-### Linked Tabs (site-wide sync)
+### Linked tabs (sync across page)
 
 ```toml
 [project.theme]
 features = ["content.tabs.link"]
 ```
 
-### Anchor Links
+### Tabs in admonitions
 
-Tabs automatically get anchor links. Enable slugification:
+```markdown
+!!! example
 
-```toml
-[project.markdown_extensions.pymdownx.tabbed.slugify]
-object = "pymdownx.slugs.slugify"
-kwds = { case = "lower" }
+    === "Option A"
+        Content A
+
+    === "Option B"
+        Content B
 ```
+
+---
 
 ## Data Tables
 
-```markdown
-| Method   | Description          |
-| -------- | -------------------- |
-| `GET`    | Fetch resource       |
-| `PUT`    | Update resource      |
-| `DELETE` | Delete resource      |
-```
-
-### Column Alignment
+Requires: `tables` extension.
 
 ```markdown
-| Left   | Center   | Right   |
-| :----- | :------: | ------: |
-| text   | text     | text    |
+| Method   | Description        |
+| -------- | ------------------ |
+| `GET`    | Fetch resource     |
+| `PUT`    | Update resource    |
+| `DELETE` | Delete resource    |
 ```
 
-### Sortable Tables
+### Column alignment
 
-```js
+```markdown
+| Left     | Center  | Right   |
+| :------- | :-----: | ------: |
+| A        | B       | C       |
+```
+
+### Sortable tables
+
+Add tablesort via extra JavaScript:
+
+```javascript
 document$.subscribe(function() {
   var tables = document.querySelectorAll("article table:not([class])")
-  tables.forEach(function(table) { new Tablesort(table) })
+  tables.forEach(function(table) {
+    new Tablesort(table)
+  })
 })
 ```
 
@@ -308,7 +280,11 @@ extra_javascript = [
 ]
 ```
 
+---
+
 ## Diagrams (Mermaid.js)
+
+Requires: `pymdownx.superfences` with `custom_fences` for mermaid.
 
 ```toml
 [project.markdown_extensions.pymdownx.superfences]
@@ -317,41 +293,24 @@ custom_fences = [
 ]
 ```
 
-### Flowchart
-
 ````markdown
 ``` mermaid
 graph LR
   A[Start] --> B{Error?};
   B -->|Yes| C[Debug];
-  B ---->|No| E[Yay!];
+  B ---->|No| D[Done];
 ```
 ````
 
-### Sequence Diagram
+Supported diagram types: flowcharts (`graph`), sequence diagrams (`sequenceDiagram`), state diagrams (`stateDiagram-v2`), class diagrams (`classDiagram`), entity-relationship diagrams (`erDiagram`).
 
-````markdown
-``` mermaid
-sequenceDiagram
-  autonumber
-  Alice->>John: Hello!
-  John-->>Alice: Hi!
-```
-````
+Other types (pie charts, gantt, user journeys, git graphs, requirement diagrams) work but are not officially supported.
 
-### State, Class, ER Diagrams
-
-Use `stateDiagram-v2`, `classDiagram`, `erDiagram` as the mermaid block type.
-
-### Custom Mermaid Config (e.g. ELK)
-
-```js
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: false, securityLevel: "loose", layout: "elk" });
-window.mermaid = mermaid;
-```
+---
 
 ## Footnotes
+
+Requires: `footnotes` extension.
 
 ```markdown
 Lorem ipsum[^1] dolor sit amet.[^2]
@@ -359,42 +318,39 @@ Lorem ipsum[^1] dolor sit amet.[^2]
 [^1]: Short footnote on one line.
 
 [^2]:
-    Multi-line footnote indented
-    by four spaces.
+    Multi-line footnote, indented by four spaces.
+    More content here.
 ```
 
-### Footnote Tooltips
+### Footnote tooltips
 
 ```toml
 [project.theme]
 features = ["content.footnote.tooltips"]
 ```
 
+---
+
 ## Formatting
 
-Requires `pymdownx.caret`, `pymdownx.mark`, `pymdownx.tilde`.
+Requires: `pymdownx.caret`, `pymdownx.mark`, `pymdownx.tilde`, `pymdownx.keys`.
 
 ```markdown
-- ==Highlighted==
-- ^^Underlined (inserted)^^
-- ~~Strikethrough (deleted)~~
-- H~2~O (subscript)
-- A^T^A (superscript)
+- ==highlighted==
+- ^^underline/inserted^^
+- ~~strikethrough/deleted~~
+- H~2~O
+- A^T^A
+- ++ctrl+alt+del++
 ```
 
-### Keyboard Keys
-
-Requires `pymdownx.keys`.
-
-```markdown
-++ctrl+alt+del++
-```
+---
 
 ## Grids
 
-Requires `attr_list` and `md_in_html`.
+Requires: `attr_list`, `md_in_html`.
 
-### Card Grid (List Syntax)
+### Card grid (list syntax)
 
 ```html
 <div class="grid cards" markdown>
@@ -405,94 +361,85 @@ Requires `attr_list` and `md_in_html`.
 </div>
 ```
 
-### Card Grid (Block Syntax)
+### Card grid (complex, block syntax)
 
 ```html
-<div class="grid" markdown>
+<div class="grid cards" markdown>
 
-:fontawesome-brands-html5: __HTML__ for content
-{ .card }
+-   :material-clock-fast:{ .lg .middle } __Set up in 5 minutes__
+
+    ---
+
+    Install and get started quickly.
+
+    [:octicons-arrow-right-24: Getting started](#)
 
 </div>
 ```
 
-### Generic Grid
+### Generic grid
 
 ```html
 <div class="grid" markdown>
 
-=== "List A"
-    * Item 1
+=== "Tab A"
+    Content A
 
-=== "List B"
-    * Item 1
+=== "Tab B"
+    Content B
 
 </div>
 ```
+
+---
 
 ## Icons and Emojis
 
-Requires `attr_list` and `pymdownx.emoji`.
-
-```toml
-[project.markdown_extensions.pymdownx.emoji]
-emoji_index = "zensical.extensions.emoji.twemoji"
-emoji_generator = "zensical.extensions.emoji.to_svg"
-```
-
-### Use Emojis
+Requires: `attr_list`, `pymdownx.emoji`.
 
 ```markdown
 :smile:
-```
-
-### Use Icons
-
-```markdown
 :fontawesome-regular-face-laugh-wink:
-:lucide-triangle-alert:
-:material-check:
-:octicons-mark-github-16:
+:material-heart:
+:octicons-heart-fill-24:
+:simple-lucide:
 ```
 
-Included sets: Lucide, Material Design, FontAwesome, Octicons, Simple Icons.
+Included icon sets: Lucide, Material Design, FontAwesome, Octicons, Simple Icons.
 
-### Icons with Color
+### Icon with color
 
 ```markdown
 :fontawesome-brands-youtube:{ .youtube }
 ```
 
 ```css
-.youtube { color: #EE0F0F; }
-```
-
-### Icons with Animation
-
-```css
-@keyframes heart {
-  0%, 40%, 80%, 100% { transform: scale(1); }
-  20%, 60% { transform: scale(1.15); }
+.youtube {
+  color: #EE0F0F;
 }
-.heart { animation: heart 1000ms infinite; }
 ```
 
-```markdown
-:octicons-heart-fill-24:{ .heart }
+### Icon in template
+
+```html
+<span class="twemoji">
+  {% include ".icons/fontawesome/brands/youtube.svg" %}
+</span>
 ```
+
+---
 
 ## Images
 
-Requires `attr_list`, `md_in_html`, optionally `pymdownx.blocks.caption`.
-
-### Image Alignment
+Requires: `attr_list`, `md_in_html`, `pymdownx.blocks.caption`.
 
 ```markdown
 ![Alt text](image.png){ align=left }
 ![Alt text](image.png){ align=right }
+![Alt text](image.png){ loading=lazy }
 ```
 
-### Image Caption
+### Caption
 
 ```markdown
 ![Image title](image.png){ width="300" }
@@ -501,29 +448,27 @@ Image caption
 ///
 ```
 
-Or with HTML:
+Or using HTML:
 
 ```html
 <figure markdown="span">
   ![Image title](image.png){ width="300" }
-  <figcaption>Caption</figcaption>
+  <figcaption>Caption text</figcaption>
 </figure>
 ```
 
-### Lazy Loading
-
-```markdown
-![Alt text](image.png){ loading=lazy }
-```
-
-### Light/Dark Mode Images
+### Light and dark mode images
 
 ```markdown
 ![Light](image-light.png#only-light)
 ![Dark](image-dark.png#only-dark)
 ```
 
+---
+
 ## Lists
+
+Requires: `def_list`, `pymdownx.tasklist` (for definition and task lists).
 
 ### Unordered
 
@@ -536,24 +481,19 @@ Or with HTML:
 ### Ordered
 
 ```markdown
-1. First item
-2. Second item
-    1. Nested
+1.  First item
+2.  Second item
+    1.  Nested
 ```
 
-### Definition Lists
-
-Requires `def_list`.
+### Definition list
 
 ```markdown
 `Term`
-
 :   Definition text here.
 ```
 
-### Task Lists
-
-Requires `pymdownx.tasklist` with `custom_checkbox = true`.
+### Task list
 
 ```markdown
 - [x] Completed task
@@ -562,9 +502,35 @@ Requires `pymdownx.tasklist` with `custom_checkbox = true`.
     * [ ] Nested todo
 ```
 
+---
+
 ## Math
 
 ### MathJax
+
+Add `docs/javascripts/mathjax.js`:
+
+```javascript
+window.MathJax = {
+  tex: {
+    inlineMath: [["\\(", "\\)"]],
+    displayMath: [["\\[", "\\]"]],
+    processEscapes: true,
+    processEnvironments: true
+  },
+  options: {
+    ignoreHtmlClass: ".*|",
+    processHtmlClass: "arithmatex"
+  }
+};
+
+document$.subscribe(() => {
+  MathJax.startup.output.clearCache()
+  MathJax.typesetClear()
+  MathJax.texReset()
+  MathJax.typesetPromise()
+})
+```
 
 ```toml
 [project]
@@ -577,22 +543,18 @@ extra_javascript = [
 generic = true
 ```
 
-```js
-window.MathJax = {
-  tex: {
-    inlineMath: [["\\(", "\\)"]],
-    displayMath: [["\\[", "\\]"]],
-    processEscapes: true,
-    processEnvironments: true
-  },
-  options: { ignoreHtmlClass: ".*|", processHtmlClass: "arithmatex" }
-};
-document$.subscribe(() => {
-  MathJax.startup.output.clearCache()
-  MathJax.typesetClear()
-  MathJax.texReset()
-  MathJax.typesetPromise()
-})
+Block math:
+
+```latex
+$$
+\cos x=\sum_{k=0}^{\infty}\frac{(-1)^k}{(2k)!}x^{2k}
+$$
+```
+
+Inline math:
+
+```latex
+The function $f$ is injective if and only if $a \neq b$.
 ```
 
 ### KaTeX
@@ -610,31 +572,19 @@ extra_css = ["https://unpkg.com/katex@0/dist/katex.min.css"]
 generic = true
 ```
 
-### Block Math Syntax
-
-```latex
-$$
-\cos x=\sum_{k=0}^{\infty}\frac{(-1)^k}{(2k)!}x^{2k}
-$$
-```
-
-### Inline Math Syntax
-
-```latex
-The homomorphism $f$ is injective if its kernel is $e_G$.
-```
+---
 
 ## Tooltips and Abbreviations
 
-Requires `abbr`, `attr_list`, `pymdownx.snippets`.
+Requires: `abbr`, `attr_list`, `pymdownx.snippets`.
 
-### Tooltip on Link
+### Inline tooltip on link
 
 ```markdown
 [Hover me](https://example.com "I'm a tooltip!")
 ```
 
-### Tooltip on Icon
+### Tooltip on element
 
 ```markdown
 :material-information-outline:{ title="Important information" }
@@ -649,23 +599,25 @@ The HTML specification is maintained by the W3C.
 *[W3C]: World Wide Web Consortium
 ```
 
-### Global Glossary
+### Glossary (auto-append)
 
 ```toml
 [project.markdown_extensions.pymdownx.snippets]
 auto_append = ["includes/abbreviations.md"]
 ```
 
-### Improved Tooltips
+### Improved tooltips feature
 
 ```toml
 [project.theme]
 features = ["content.tooltips"]
 ```
 
+---
+
 ## Buttons
 
-Requires `attr_list`.
+Requires: `attr_list`.
 
 ```markdown
 [Subscribe](#){ .md-button }

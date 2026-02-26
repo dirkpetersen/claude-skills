@@ -1,16 +1,17 @@
 ---
 name: zensical
-description: Use this skill whenever the user wants to build, configure, customize, or author content for a Zensical static site. Covers installation with pip and uv, project creation, configuration via zensical.toml or mkdocs.yml, theme variants, colors, fonts, navigation, search, analytics, footer, header, repository integration, language/i18n, offline usage, tags, social cards, and publishing to GitHub Pages or GitLab Pages. Also covers all Markdown authoring features including admonitions, code blocks with annotations and highlighting, content tabs, data tables, diagrams via Mermaid.js, footnotes, formatting, front matter, grids, icons and emojis, images, lists, math via MathJax or KaTeX, tooltips and abbreviations, and buttons. Includes Python Markdown and Python Markdown Extensions configuration, mkdocstrings integration, customization via CSS/JS overrides and template extension, and community contribution workflows.
+description: Use this skill whenever the user wants to build, configure, customize, or author content for a Zensical static site. Covers installation with pip or uv, zensical.toml and mkdocs.yml configuration, site basics (site_name, site_url, docs_dir, site_dir, nav), theme variants (modern/classic), colors, fonts, logo, icons, navigation features, search, analytics, footer, header, tags, offline usage, publishing to GitHub Pages or GitLab Pages, and upgrading. Also covers all Markdown authoring features: admonitions, buttons, code blocks (syntax highlighting, annotations, line numbers), content tabs, data tables, diagrams (Mermaid.js), footnotes, formatting (highlight, sub/superscript, keyboard keys), front matter (title, description, icon, status, template, hide), grids, icons and emojis, images, lists (unordered, ordered, definition, task), math (MathJax, KaTeX), tooltips and abbreviations. Includes all Python Markdown and Python Markdown Extensions configuration, custom templates, theme overrides, additional CSS/JS, and community contribution workflows.
 ---
 
 ## Overview
-Zensical is a modern static site generator built by the creators of Material for MkDocs, offering a batteries-included documentation platform with a Rust+Python core. It supports both `zensical.toml` and `mkdocs.yml` configuration, ships with over 10,000 icons, full-text search, instant navigation, and a rich Markdown authoring system powered by Python Markdown and PyMdown Extensions.
+
+Zensical is a modern static site generator built by the creators of Material for MkDocs. It reads Markdown source files and configuration from `zensical.toml` (or `mkdocs.yml` for compatibility) and produces a fully themed, searchable static HTML site. It is written in Rust and Python, supports live preview, differential builds, and a rich ecosystem of Markdown extensions for technical documentation.
 
 ## Topics
+
 - [Setup](setup.md) — installation, project creation, configuration basics, publishing
-- [Theme](theme.md) — colors, fonts, logo, icons, navigation, header, footer, language
-- [Authoring](authoring.md) — Markdown, admonitions, code blocks, content tabs, diagrams, math, images, grids, lists, footnotes, formatting, tooltips, buttons
-- [Extensions](extensions.md) — Python Markdown and PyMdown Extensions configuration reference
-- [Customization](customization.md) — CSS/JS assets, template overrides, custom error pages
-- [Plugins](plugins.md) — offline plugin, mkdocstrings, analytics, search, tags, social cards, comment systems
-- [Contributing](contributing.md) — bug reports, change requests, pull requests, code of conduct
+- [Theme](theme.md) — colors, fonts, logo, icons, navigation, header, footer, search, tags, analytics, offline, repository
+- [Authoring](authoring.md) — Markdown features, admonitions, code blocks, content tabs, diagrams, math, images, grids, lists, footnotes, formatting, tooltips, buttons, front matter
+- [Extensions](extensions.md) — Python Markdown and Python Markdown Extensions reference
+- [Customization](customization.md) — additional CSS/JS, theme extension, template overrides, custom templates
+- [Community](community.md) — contributing, bug reports, change requests, pull requests, code of conduct

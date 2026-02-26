@@ -1,8 +1,17 @@
 # Extensions
 
-Zensical uses Python Markdown and Python Markdown Extensions (PyMdown). A default set of extensions is active unless you override them.
+Zensical uses Python Markdown with Python Markdown Extensions. Configure them under `[project.markdown_extensions]` in `zensical.toml`.
 
 ## Default Configuration
+
+Zensical enables a sensible set of extensions by default. To use the defaults, omit the `markdown_extensions` key. To reset to bare MkDocs defaults:
+
+```toml
+[project]
+markdown_extensions = {}
+```
+
+Full default configuration:
 
 ```toml
 [project.markdown_extensions.abbr]
@@ -35,78 +44,95 @@ custom_checkbox = true
 [project.markdown_extensions.pymdownx.tilde]
 ```
 
-To disable all defaults (reset to MkDocs behavior):
-
-```toml
-[project]
-markdown_extensions = {}
-```
+---
 
 ## Python Markdown Extensions Reference
 
-### abbr — Abbreviations
+### Abbreviations (`abbr`)
 
-No config options. See [Authoring — Tooltips](authoring.md).
+```toml
+[project.markdown_extensions.abbr]
+```
 
-### admonition — Admonitions
+No options. Use: `*[ABBR]: Definition`
 
-No config options. See [Authoring — Admonitions](authoring.md).
+### Admonition (`admonition`)
 
-### attr_list — Attribute Lists
+```toml
+[project.markdown_extensions.admonition]
+```
 
-No config options. Enables adding HTML attributes/CSS classes to elements.
+No options. Use `!!!` prefix syntax.
 
-### def_list — Definition Lists
+### Attribute Lists (`attr_list`)
 
-No config options.
+```toml
+[project.markdown_extensions.attr_list]
+```
 
-### footnotes — Footnotes
+No options. Adds `{ .class #id key=value }` syntax to any element.
 
-No config options.
+### Definition Lists (`def_list`)
 
-### md_in_html — Markdown in HTML
+```toml
+[project.markdown_extensions.def_list]
+```
 
-No config options. Enables Markdown parsing inside HTML block elements when `markdown` attribute is present.
+No options. Use `:   definition` syntax.
 
-### toc — Table of Contents
+### Footnotes (`footnotes`)
+
+```toml
+[project.markdown_extensions.footnotes]
+```
+
+No options. Use `[^id]` and `[^id]: content` syntax.
+
+### Markdown in HTML (`md_in_html`)
+
+```toml
+[project.markdown_extensions.md_in_html]
+```
+
+No options. Add `markdown` attribute to HTML block elements.
+
+### Table of Contents (`toc`)
 
 ```toml
 [project.markdown_extensions.toc]
 permalink = true
-title = "On this page"
-permalink = "⚓︎"
 permalink_title = "Anchor link to this section"
+title = "On this page"
 toc_depth = 3
+slugify = {object = "pymdownx.slugs.slugify", kwds = {case = "lower"}}
 ```
 
-Slugify function:
+### Tables (`tables`)
 
 ```toml
-[project.markdown_extensions.toc.slugify]
-object = "pymdownx.slugs.slugify"
-kwds = { case = "lower" }
+[project.markdown_extensions.tables]
 ```
 
-### tables — Tables
+No options.
 
-No config options.
+---
 
-## PyMdown Extensions Reference
+## Python Markdown Extensions (pymdownx) Reference
 
-### pymdownx.arithmatex
+### Arithmatex
 
 ```toml
 [project.markdown_extensions.pymdownx.arithmatex]
 generic = true
 ```
 
-### pymdownx.blocks.caption
+### Caption
 
 ```toml
 [project.markdown_extensions.pymdownx.blocks.caption]
 ```
 
-### pymdownx.caret / mark / tilde
+### Caret / Mark / Tilde
 
 ```toml
 [project.markdown_extensions.pymdownx.caret]
@@ -114,13 +140,13 @@ generic = true
 [project.markdown_extensions.pymdownx.tilde]
 ```
 
-### pymdownx.details
+### Details (collapsible admonitions)
 
 ```toml
 [project.markdown_extensions.pymdownx.details]
 ```
 
-### pymdownx.emoji
+### Emoji
 
 ```toml
 [project.markdown_extensions.pymdownx.emoji]
@@ -129,7 +155,7 @@ emoji_generator = "zensical.extensions.emoji.to_svg"
 options.custom_icons = ["overrides/.icons"]
 ```
 
-### pymdownx.highlight
+### Highlight (syntax highlighting)
 
 ```toml
 [project.markdown_extensions.pymdownx.highlight]
@@ -139,35 +165,42 @@ pygments_lang_class = true
 auto_title = true
 linenums = true
 linenums_style = "pymdownx-inline"
+[project.markdown_extensions.pymdownx.superfences]
 ```
 
-### pymdownx.inlinehilite
+### InlineHilite
 
 ```toml
 [project.markdown_extensions.pymdownx.highlight]
 [project.markdown_extensions.pymdownx.inlinehilite]
 ```
 
-### pymdownx.keys
+### Keys
 
 ```toml
 [project.markdown_extensions.pymdownx.keys]
 ```
 
-### pymdownx.smartsymbols
+Syntax: `++ctrl+alt+del++`
+
+### SmartSymbols
 
 ```toml
 [project.markdown_extensions.pymdownx.smartsymbols]
 ```
 
-### pymdownx.snippets
+Converts sequences like `(c)` to ©.
+
+### Snippets
 
 ```toml
 [project.markdown_extensions.pymdownx.snippets]
 auto_append = ["includes/abbreviations.md"]
 ```
 
-### pymdownx.superfences
+Embed files with `;--8<-- "filename"` inside a code block.
+
+### SuperFences
 
 ```toml
 [project.markdown_extensions.pymdownx.superfences]
@@ -176,25 +209,43 @@ custom_fences = [
 ]
 ```
 
-### pymdownx.tabbed
+### Tabbed (content tabs)
 
 ```toml
 [project.markdown_extensions.pymdownx.tabbed]
 alternate_style = true
 combine_header_slug = true
-```
-
-Slugify:
-
-```toml
 [project.markdown_extensions.pymdownx.tabbed.slugify]
 object = "pymdownx.slugs.slugify"
 kwds = { case = "lower" }
 ```
 
-### pymdownx.tasklist
+### Tasklist
 
 ```toml
 [project.markdown_extensions.pymdownx.tasklist]
 custom_checkbox = true
-clickable_checkbox = true
+clickable_checkbox = false
+```
+
+---
+
+## mkdocstrings (API Reference)
+
+Install:
+
+```sh
+pip install mkdocstrings-python
+```
+
+Configure:
+
+```toml
+[project.plugins.mkdocstrings.handlers.python]
+inventories = ["https://docs.python.org/3/objects.inv"]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "google"
+inherited_members = true
+show_source = false

@@ -2,25 +2,23 @@
 
 ## Installation
 
-Zensical is distributed as a Python package. Use a virtual environment.
+Zensical is published as a Python package on PyPI. Use a virtual environment.
 
-### With pip
+### Install with pip
 
 ```sh
+# macOS / Linux
 python3 -m venv .venv
 source .venv/bin/activate
 pip install zensical
-```
 
-On Windows:
-
-```ps1
+# Windows
 python -m venv .venv
 .venv\Scripts\activate
 pip install zensical
 ```
 
-### With uv
+### Install with uv
 
 ```sh
 uv init
@@ -31,13 +29,15 @@ uv add --dev zensical
 
 An official Docker image is available on Docker Hub at `zensical/zensical`.
 
+---
+
 ## Create a New Project
 
 ```sh
 zensical new .
 ```
 
-Generated structure:
+This generates:
 
 ```sh
 .
@@ -49,149 +49,100 @@ Generated structure:
 ```
 
 - `zensical.toml` — project configuration
-- `docs/` — Markdown source files (`docs_dir`)
-- `.github/` — GitHub Actions workflow for Pages deployment
+- `docs/` — Markdown source files (configurable via `docs_dir`)
+- `.github/` — GitHub Actions workflow for automatic deployment
 
-## Configuration File Formats
-
-Zensical reads both `zensical.toml` (recommended for new projects) and `mkdocs.yml` (for migration from Material for MkDocs).
-
-### Minimal zensical.toml
-
-```toml
-[project]
-site_name = "My site"
-site_url = "https://example.com"
-```
-
-### Minimal mkdocs.yml
-
-```yaml
-site_name: My site
-site_url: https://example.com
-```
-
-## Core Settings
-
-### site_name (required)
-
-```toml
-[project]
-site_name = "My Zensical project"
-```
-
-### site_url
-
-Required for instant navigation, instant previews, and custom error pages.
-
-```toml
-[project]
-site_url = "https://example.com"
-```
-
-### site_description
-
-```toml
-[project]
-site_description = "Lorem ipsum dolor sit amet."
-```
-
-### site_author
-
-```toml
-[project]
-site_author = "Jane Doe"
-```
-
-### copyright
-
-```toml
-[project]
-copyright = "&copy; 2025 Jane Doe"
-```
-
-### docs_dir
-
-```toml
-[project]
-docs_dir = "docs"
-```
-
-### site_dir
-
-```toml
-[project]
-site_dir = "site"
-```
-
-### use_directory_urls
-
-Controls URL format. Defaults to `true`.
-
-```toml
-[project]
-use_directory_urls = false
-```
-
-| Value | Source file | URL |
-|-------|-------------|-----|
-| true | usage.md | /usage/ |
-| false | usage.md | /usage.html |
-
-### dev_addr
-
-```toml
-[project]
-dev_addr = "localhost:3000"
-```
-
-Default: `localhost:8000`.
-
-### extra
-
-Arbitrary key-value pairs available in templates.
-
-```toml
-[project.extra]
-key = "value"
-```
+---
 
 ## CLI Commands
 
-### zensical new
-
 ```sh
-zensical new [OPTIONS] PROJECT_DIRECTORY
+zensical COMMAND [OPTIONS]
 ```
 
-Creates a new project at the given path.
+| Command | Description |
+| --- | --- |
+| `zensical new PROJECT_DIRECTORY` | Create a new project |
+| `zensical build [OPTIONS]` | Build static site |
+| `zensical serve [OPTIONS]` | Start local preview server |
 
-### zensical serve
-
-```sh
-zensical serve [OPTIONS]
-```
+### Build options
 
 | Option | Short | Description |
-|--------|-------|-------------|
-| --config-file | -f | Path to config file |
-| --open | -o | Open in default browser |
-| --dev-addr IP:PORT | -a | Bind address (default: localhost:8000) |
+| --- | --- | --- |
+| `--config-file` | `-f` | Path to config file |
+| `--clean` | `-c` | Clean cache |
+| `--help` | | Show help |
 
-### zensical build
-
-```sh
-zensical build [OPTIONS]
-```
+### Serve options
 
 | Option | Short | Description |
-|--------|-------|-------------|
-| --config-file | -f | Path to config file |
-| --clean | -c | Clean cache |
+| --- | --- | --- |
+| `--config-file` | `-f` | Path to config file |
+| `--open` | `-o` | Open in default browser |
+| `--dev-addr IP:PORT` | `-a` | Bind address (default: localhost:8000) |
+| `--help` | | Show help |
+
+---
+
+## Configuration File
+
+Zensical uses `zensical.toml` (recommended) or `mkdocs.yml` (compatibility). All settings live under the `[project]` scope in TOML.
+
+### Required settings
+
+```toml
+[project]
+site_name = "My Site"
+```
+
+### Common settings
+
+```toml
+[project]
+site_name = "My Site"
+site_url = "https://example.com"
+site_description = "A description of my site."
+site_author = "Jane Doe"
+copyright = "&copy; 2025 Jane Doe"
+docs_dir = "docs"
+site_dir = "site"
+repo_url = "https://github.com/example/repo"
+repo_name = "example/repo"
+use_directory_urls = true
+dev_addr = "localhost:8000"
+```
+
+### Navigation
+
+```toml
+[project]
+nav = [
+  "index.md",
+  {"About" = "about.md"},
+  {"Section" = [
+    "section/index.md",
+    {"Page 1" = "section/page-1.md"}
+  ]}
+]
+```
+
+External links: any nav value that is not a Markdown path is treated as a URL.
+
+---
+
+## Theme Variant
+
+```toml
+[project.theme]
+variant = "modern"   # or "classic" (matches Material for MkDocs look)
+```
+
+---
 
 ## Publishing
 
-### GitHub Pages via GitHub Actions
+### GitHub Pages (GitHub Actions)
 
 Create `.github/workflows/docs.yml`:
 
@@ -244,7 +195,9 @@ pages:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
 ```
 
-Note: set `site_dir = "public"` in your config for GitLab.
+Set `site_dir = "public"` in your configuration for GitLab.
+
+---
 
 ## Upgrading
 
@@ -256,4 +209,14 @@ pip install --upgrade --force-reinstall zensical
 uv lock --upgrade-package zensical==<version>
 ```
 
-Zensical uses semantic versioning and is currently on 0.0.x (alpha).
+Check the [changelog](https://github.com/zensical/zensical/releases) for release notes.
+
+---
+
+## Offline Usage
+
+```toml
+[project.plugins.offline]
+```
+
+Enables client-side search when the site is distributed as a download (accessed from the filesystem). Disable instant navigation, analytics, git repository info, and comment systems when building for offline use.
