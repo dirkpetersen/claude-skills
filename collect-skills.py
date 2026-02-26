@@ -16,22 +16,6 @@ Rules enforced (from "The Complete Guide to Building Skills for Claude"):
   - No XML angle brackets (< >) anywhere — security restriction
   - Keep under ~5 000 words per skill file
 
-Usage:
-  python3 collect_skills.py [options]
-
-Options:
-  --dry-run             Show what would happen without writing files
-  -v, --verbose         Extra output
-  --github-user NAME    GitHub user to scan (default: from git push remote)
-  --source {local,github,urls} [...]
-                        One or more sources to collect from (default: all three)
-  --no-generate         Disable skill generation from PDF/text docs
-                        Generation is ON by default when 'claude' CLI is in PATH
-                        or ANTHROPIC_API_KEY is set (CLI takes priority).
-                        When using the CLI, PDFs are read natively — no extra library needed.
-                        SDK fallback needs: pip install pymupdf4llm anthropic
-  -f, --force           Force regeneration: overwrite existing skills and ignore checksums
-
 GitHub rate limits:
   Unauthenticated: 60 req/h.  Set GH_TOKEN or GITHUB_TOKEN env var for 5 000 req/h.
 """
