@@ -30,7 +30,7 @@ Options:
                         or ANTHROPIC_API_KEY is set (CLI takes priority).
                         When using the CLI, PDFs are read natively — no extra library needed.
                         SDK fallback needs: pip install pymupdf4llm anthropic
-  --overwrite           Replace skills that already exist in .claude/skills/
+  -f, --force           Force regeneration: overwrite existing skills and ignore checksums
 
 GitHub rate limits:
   Unauthenticated: 60 req/h.  Set GH_TOKEN or GITHUB_TOKEN env var for 5 000 req/h.
@@ -260,7 +260,7 @@ def install_skill(
     skill_dir: str,
     dry_run: bool,
     verbose: bool,
-    overwrite: bool,
+    force: bool,
     filename: str = "SKILL.md",
 ) -> str:
     """Write skill file and return status: 'created' | 'updated' | 'unchanged' | 'skipped' | 'dry-run'."""
@@ -269,9 +269,9 @@ def install_skill(
     if dest.exists():
         if dest.read_text(encoding="utf-8") == content:
             return "unchanged"
-        if not overwrite:
+        if not force:
             if verbose:
-                print(f"    (skip — {label} exists and differs; use --overwrite to replace)")
+                print(f"    (skip — {label} exists and differs; use --force to replace)")
             return "skipped"
     if dry_run:
         action = "update" if dest.exists() else "create"
@@ -383,7 +383,7 @@ def _source_tag(item: Path) -> str:
 _SKIP_DIRS = {"__pycache__", "node_modules", ".venv", "venv", ".tox", "dist", "build"}
 
 
-def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool) -> None:
+def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> None:
     subfolders = [
         i for i in sorted(REPO_ROOT.iterdir())
         if i.is_dir() and not i.name.startswith(".") and i.name not in _SKIP_DIRS
@@ -431,7 +431,7 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 if is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
                     sdir = skill_dirname(meta, item.name)
-                    st = install_skill(content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(content, sdir, dry_run, verbose, force)
                     print(f"  [local] {item.name}/{candidate.name} -> {sdir}/SKILL.md  [{st}]")
                     installed = True
                     break
@@ -445,16 +445,16 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                 if is_valid_skill(content):
                     meta, _ = parse_frontmatter(content)
                     sdir = skill_dirname(meta, item.name)
-                    st = install_skill(content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(content, sdir, dry_run, verbose, force)
                     print(f"  [local] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
                     installed = True
                     break
 
         # Skip AI generation if skill exists and source tree is unchanged
-        if not installed and skill_on_disk and not changed and not overwrite:
+        if not installed and skill_on_disk and not changed and not force:
             print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [unchanged sources, skip generation]")
             continue
-        if not installed and skill_on_disk and not overwrite:
+        if not installed and skill_on_disk and not force:
             print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [skill on disk, skip generation]")
             continue
 
@@ -480,7 +480,7 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     else:
                         meta, _ = parse_frontmatter(skill_content)
                         sdir = skill_dirname(meta, item.name)
-                        st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                        st = install_skill(skill_content, sdir, dry_run, verbose, force)
                         print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md  [{st}]")
                         installed = True
                         break
@@ -501,7 +501,7 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, overwrite: bool)
                     else:
                         meta, _ = parse_frontmatter(skill_content)
                         sdir = skill_dirname(meta, item.name)
-                        st = install_skill(skill_content, sdir, dry_run, verbose, overwrite)
+                        st = install_skill(skill_content, sdir, dry_run, verbose, force)
                         print(f"  [local+AI] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
                         installed = True
                         break
@@ -681,7 +681,7 @@ THIS_REPO = "claude-skills"   # skip — it is the target repo
 
 
 def collect_github_user(
-    username: str, dry_run: bool, verbose: bool, overwrite: bool
+    username: str, dry_run: bool, verbose: bool, force: bool
 ) -> None:
     print(f"\n=== Source 2: GitHub user '{username}' ===")
 
@@ -784,7 +784,7 @@ def collect_github_user(
                     # Generic / standalone skill — own top-level folder
                     target_dir, target_file = skill_name, "SKILL.md"
 
-                st = install_skill(content, target_dir, dry_run, verbose, overwrite, filename=target_file)
+                st = install_skill(content, target_dir, dry_run, verbose, force, filename=target_file)
                 print(f"  [github:{repo_name}] .claude/skills/{stem}.md -> {target_dir}/{target_file}  [{st}]")
                 installed_paths.add(f".claude/skills/{stem}.md")
 
@@ -801,13 +801,13 @@ def collect_github_user(
                     meta, _ = parse_frontmatter(content)
                     folder = Path(path).parent.name or repo_name
                     sdir = skill_dirname(meta, folder)
-                    st = install_skill(content, sdir, dry_run, verbose, overwrite)
+                    st = install_skill(content, sdir, dry_run, verbose, force)
                     print(f"  [github:{repo_name}] {path} -> {sdir}/SKILL.md  [{st}]")
 
 
 # ── Source 3: skills.txt URLs ──────────────────────────────────────────────────
 
-def collect_from_urls(dry_run: bool, verbose: bool, overwrite: bool) -> None:
+def collect_from_urls(dry_run: bool, verbose: bool, force: bool) -> None:
     print("\n=== Source 3: skills.txt URLs ===")
     if not SKILLS_TXT.exists():
         print("  skills.txt not found — skipping")
@@ -832,7 +832,7 @@ def collect_from_urls(dry_run: bool, verbose: bool, overwrite: bool) -> None:
             meta, _ = parse_frontmatter(content)
             fallback = Path(urllib.parse.urlparse(url).path).name or "unnamed"
             sdir = skill_dirname(meta, fallback)
-            st = install_skill(content, sdir, dry_run, verbose, overwrite)
+            st = install_skill(content, sdir, dry_run, verbose, force)
             print(f"  [url] {url} -> {sdir}/SKILL.md  [{st}]")
         else:
             if verbose:
@@ -933,8 +933,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         ),
     )
     parser.add_argument(
-        "--overwrite", action="store_true",
-        help="Overwrite skill files that already exist in .claude/skills/",
+        "-f", "--force", action="store_true",
+        help="Force regeneration: overwrite existing skills and ignore checksums",
     )
     args = parser.parse_args(argv)
 
@@ -965,15 +965,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     _migrate_flat_skills(args.dry_run, args.verbose)
 
     if "local" in sources:
-        collect_local(args.dry_run, args.verbose, generate, args.overwrite)
+        collect_local(args.dry_run, args.verbose, generate, args.force)
 
     if "github" in sources:
         collect_github_user(
-            args.github_user, args.dry_run, args.verbose, args.overwrite
+            args.github_user, args.dry_run, args.verbose, args.force
         )
 
     if "urls" in sources:
-        collect_from_urls(args.dry_run, args.verbose, args.overwrite)
+        collect_from_urls(args.dry_run, args.verbose, args.force)
 
     print("\nDone.")
     return 0

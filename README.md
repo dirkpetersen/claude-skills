@@ -39,7 +39,7 @@ python collect-skills.py --source local
 python collect-skills.py --dry-run
 
 # Force regeneration of existing skills
-python collect-skills.py --overwrite
+python collect-skills.py --force
 ```
 
 ### CLI Options
@@ -50,7 +50,7 @@ python collect-skills.py --overwrite
 --source SOURCE [...]  Sources: local, github, urls (default: all three)
 --github-user NAME     GitHub user/org to scan (default: from git push remote)
 --no-generate          Disable AI generation from PDF/text docs
---overwrite            Replace skills that already exist on disk
+--force            Replace skills that already exist on disk
 ```
 
 ### Adding Your Own Documentation
@@ -77,7 +77,7 @@ When a subfolder has documentation but no valid skill file, the tool generates o
 - **Primary**: `claude` CLI in batch mode (`claude -p`). Reads PDFs natively.
 - **Fallback**: Anthropic Python SDK (direct API or AWS Bedrock). Requires `pip install 'anthropic[bedrock]'` or `pip install anthropic`.
 
-Generation is skipped if a skill already exists on disk. Use `--overwrite` to force regeneration.
+Generation is skipped if a skill already exists on disk. Use `--force` to force regeneration.
 
 ### GitHub Actions
 
