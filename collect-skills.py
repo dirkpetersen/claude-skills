@@ -477,7 +477,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
                     else:
                         meta, _ = parse_frontmatter(skill_content)
                         sdir = skill_dirname(meta, item.name)
-                        st = install_skill(skill_content, sdir, dry_run, verbose, force)
+                        # Always overwrite when we just generated from changed sources
+                        st = install_skill(skill_content, sdir, dry_run, verbose, force=True)
                         print(f"  [local+AI] {item.name}/{pdf.name} -> {sdir}/SKILL.md  [{st}]")
                         installed = True
                         break
@@ -506,7 +507,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
                     else:
                         meta, _ = parse_frontmatter(skill_content)
                         sdir = skill_dirname(meta, item.name)
-                        st = install_skill(skill_content, sdir, dry_run, verbose, force)
+                        # Always overwrite when we just generated from changed sources
+                        st = install_skill(skill_content, sdir, dry_run, verbose, force=True)
                         print(f"  [local+AI] {item.name}/{src_name}+{len(parts)-1} more -> {sdir}/SKILL.md  [{st}]")
                         installed = True
 
