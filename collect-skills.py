@@ -459,7 +459,7 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
         #   - claude CLI available: pass pdf_path directly (CLI reads PDFs natively)
         #   - SDK fallback: extract text first with pymupdf4llm / pypdf / pdftotext
         if not installed and generate:
-            claude_bin = shutil.which("claude")
+            claude_bin = shutil.which("claude") if not os.environ.get("CLAUDECODE") else None
             for pdf in sorted(item.rglob("*.pdf")):
                 if pdf.name.endswith(":Zone.Identifier"):
                     continue
@@ -483,14 +483,22 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
                         break
 
         # 1-d  Any markdown / text as AI source (README, .pdf.md, etc.)
+        #      Concatenate all markdown in the tree and make ONE generation call.
         if not installed and generate:
+            parts: list[str] = []
+            src_name = ""
             for md in sorted(item.rglob("*.md")):
                 if md.name.endswith(":Zone.Identifier"):
                     continue
                 text = md.read_text(encoding="utf-8", errors="replace").strip()
-                if len(text) < 200:
-                    continue  # too little content to generate from
-                skill_content = _generate_skill_via_claude(text, item.name)
+                if len(text) < 100:
+                    continue
+                parts.append(f"## File: {md.relative_to(item)}\n\n{text}")
+                if not src_name:
+                    src_name = md.name
+            combined = "\n\n---\n\n".join(parts)
+            if len(combined) >= 200:
+                skill_content = _generate_skill_via_claude(combined, item.name)
                 if skill_content:
                     reason = _skill_rejection_reason(skill_content)
                     if reason:
@@ -499,9 +507,8 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
                         meta, _ = parse_frontmatter(skill_content)
                         sdir = skill_dirname(meta, item.name)
                         st = install_skill(skill_content, sdir, dry_run, verbose, force)
-                        print(f"  [local+AI] {item.name}/{md.name} -> {sdir}/SKILL.md  [{st}]")
+                        print(f"  [local+AI] {item.name}/{src_name}+{len(parts)-1} more -> {sdir}/SKILL.md  [{st}]")
                         installed = True
-                        break
 
         if not installed and verbose:
             print(f"    (nothing usable found in {item.name}/)")
@@ -562,7 +569,11 @@ def _generate_skill_via_claude(
     """
     skill_name = sanitize_name(folder_name)
 
-    instructions = f"""Output ONLY the raw skill file — no preamble, no commentary, nothing else.
+    instructions = f"""IMPORTANT: Print the skill file content to stdout ONLY.
+Do NOT write or create any files. Do NOT use the Write, Edit, or Bash tools.
+You may use the Read tool to read source documents, but your final output must be
+ONLY the raw skill file content printed to stdout.
+No preamble, no commentary, no explanation — just the content starting with ---
 
 STRICT FORMAT RULES:
 1. First line must be exactly:  ---
@@ -586,7 +597,8 @@ BODY RULES:
 - ## References: link to every official doc URL mentioned in the source material"""
 
     # ── primary: claude CLI ────────────────────────────────────────────────────
-    claude_bin = shutil.which("claude")
+    # Skip CLI when running inside an existing Claude Code session (nesting crashes)
+    claude_bin = shutil.which("claude") if not os.environ.get("CLAUDECODE") else None
     if claude_bin:
         guide_clause = (
             f"First read the skill-building guide at {GUIDE_PDF} "
@@ -611,7 +623,7 @@ BODY RULES:
             print(f"    Invoking claude CLI: read guide + inline doc → generate {skill_name}/SKILL.md")
         try:
             result = subprocess.run(
-                [claude_bin, "-p", prompt],
+                [claude_bin, "-p", prompt, "--output-format", "text"],
                 capture_output=True, text=True, timeout=120,
             )
             if result.returncode == 0 and result.stdout.strip():
@@ -656,8 +668,8 @@ BODY RULES:
             client = anthropic.AnthropicBedrock(
                 aws_region=region, aws_profile=profile,
             )
-            model = os.environ.get("ANTHROPIC_MODEL",
-                                   "us.anthropic.claude-sonnet-4-6-v1")
+            model = os.environ.get("BEDROCK_MODEL",
+                                   "us.anthropic.claude-haiku-4-5-20251001-v1:0")
         else:
             client = anthropic.Anthropic(api_key=api_key)
             model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6")
@@ -939,8 +951,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     sources = set(args.source) if args.source else {"local", "github", "urls"}
 
     # claude CLI takes priority; SDK is the GitHub Actions fallback
-    claude_bin = shutil.which("claude")
-    generate = (bool(claude_bin) or bool(os.environ.get("ANTHROPIC_API_KEY"))) and not args.no_generate
+    # Skip CLI when running inside an existing Claude Code session
+    in_claude_session = bool(os.environ.get("CLAUDECODE"))
+    claude_bin = shutil.which("claude") if not in_claude_session else None
+    has_sdk = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    # Also check for Bedrock availability (no API key needed)
+    try:
+        import anthropic
+        has_bedrock = hasattr(anthropic, "AnthropicBedrock")
+    except ImportError:
+        has_bedrock = False
+    generate = (bool(claude_bin) or has_sdk or has_bedrock) and not args.no_generate
 
     print("Claude Skills Collector")
     print(f"  repo root : {REPO_ROOT}")
@@ -950,8 +971,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     if generate:
         if claude_bin:
             print(f"  AI generation: ON  (claude CLI: {claude_bin})")
+        elif has_sdk:
+            print("  AI generation: ON  (Anthropic SDK, ANTHROPIC_API_KEY set)")
+        elif has_bedrock:
+            print("  AI generation: ON  (AWS Bedrock SDK)")
         else:
-            print("  AI generation: ON  (Anthropic SDK fallback, ANTHROPIC_API_KEY set)")
+            print("  AI generation: ON")
     else:
         if args.no_generate:
             reason = "--no-generate flag"
