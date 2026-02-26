@@ -454,9 +454,6 @@ def collect_local(dry_run: bool, verbose: bool, generate: bool, force: bool) -> 
         if not installed and skill_on_disk and not changed and not force:
             print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [unchanged sources, skip generation]")
             continue
-        if not installed and skill_on_disk and not force:
-            print(f"  [local] {item.name}/ -> {skill_name}/SKILL.md  [skill on disk, skip generation]")
-            continue
 
         # 1-c  PDFs
         #   - claude CLI available: pass pdf_path directly (CLI reads PDFs natively)
