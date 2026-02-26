@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 collect_skills.py — Aggregate Claude Code skills from multiple sources.
 
@@ -581,7 +581,10 @@ def _extract_pdf_text(pdf_path: Path) -> Optional[str]:
     """Try pymupdf4llm → pypdf → pdftotext CLI."""
     try:
         import pymupdf4llm  # pip install pymupdf4llm
-        return pymupdf4llm.to_markdown(str(pdf_path))
+        with open(os.devnull, "w") as _devnull:
+            import contextlib
+            with contextlib.redirect_stderr(_devnull):
+                return pymupdf4llm.to_markdown(str(pdf_path))
     except ImportError:
         pass
     except Exception as exc:
